@@ -92,7 +92,7 @@ describe('UserProfileService', () => {
           throw new Error('Database connection failed')
         }
 
-        await expect(UserProfileService.getUserStatusCounts()).rejects.toThrow('Database connection failed')
+        await expect(UserProfileService.getUserStatusCounts()).rejects.toThrow('Failed to fetch user status counts')
       } finally {
         // Restore original console.error
         console.error = originalConsoleError

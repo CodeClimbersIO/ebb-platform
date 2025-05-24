@@ -1,5 +1,6 @@
 import { UserProfileRepo } from '../repos/UserProfile'
 import type { StatusCount } from '../repos/UserProfile'
+import { ApiError } from '../middleware/errorHandler.js'
 
 type StatusCountsObject = {
   [key: string]: number
@@ -20,7 +21,7 @@ const getUserStatusCounts = async (): Promise<StatusCountsObject> => {
     return result
   } catch (error) {
     console.error('Service error fetching user status counts:', error)
-    throw error
+    throw new ApiError('Failed to fetch user status counts', 500)
   }
 }
 
