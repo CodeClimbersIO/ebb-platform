@@ -1,0 +1,15 @@
+services:
+  ebb-platform:
+    image: ghcr.io/codeclimbersio/ebb-platform
+    container_name: ebb-platform
+    ports:
+      - '8001:8001'
+    env_file:
+      - .env
+    restart: always
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8001/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s 

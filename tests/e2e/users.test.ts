@@ -1,7 +1,8 @@
-import { describe, it, expect, beforeAll, afterAll } from 'bun:test'
+import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach } from 'bun:test'
 import request from 'supertest'
 import app from '../../index'
 import { startTestServer, stopTestServer } from '../helpers/testServer'
+import { UserProfileRepo } from '../../repos/UserProfile'
 
 describe('Users API', () => {
   beforeAll(async () => {
@@ -64,6 +65,74 @@ describe('Users API', () => {
 
         expect(response.headers['access-control-allow-origin']).toBe('*')
         expect(response.headers['access-control-allow-methods']).toContain('GET')
+      })
+    })
+
+    describe('Successful Authentication (Mock)', () => {
+      let originalGetUserStatusCounts: typeof UserProfileRepo.getUserStatusCounts
+
+      beforeEach(() => {
+        // Store original method and mock it for successful auth tests
+        originalGetUserStatusCounts = UserProfileRepo.getUserStatusCounts
+        UserProfileRepo.getUserStatusCounts = async () => []
+      })
+
+      afterEach(() => {
+        // Restore original method
+        UserProfileRepo.getUserStatusCounts = originalGetUserStatusCounts
+      })
+
+      it('should return 200 with valid test token', async () => {
+        const response = await request(app)
+          .get('/api/users/status-counts')
+          .set('Authorization', 'Bearer valid_test_token')
+          .expect(200)
+
+        expect(response.body).toHaveProperty('success', true)
+        expect(response.body).toHaveProperty('data')
+        expect(response.body.data).toEqual({
+          online: 0,
+          offline: 0,
+          active: 0,
+          flowing: 0
+        })
+      })
+
+      it('should include CORS headers on successful requests', async () => {
+        const response = await request(app)
+          .get('/api/users/status-counts')
+          .set('Authorization', 'Bearer valid_test_token')
+          .expect(200)
+
+        expect(response.headers['access-control-allow-origin']).toBe('*')
+        expect(response.headers['access-control-allow-methods']).toContain('GET')
+      })
+
+      it('should return JSON content type for successful requests', async () => {
+        const response = await request(app)
+          .get('/api/users/status-counts')
+          .set('Authorization', 'Bearer valid_test_token')
+          .expect(200)
+
+        expect(response.headers['content-type']).toMatch(/application\/json/)
+      })
+
+      it('should have consistent success response structure', async () => {
+        const response = await request(app)
+          .get('/api/users/status-counts')
+          .set('Authorization', 'Bearer valid_test_token')
+          .expect(200)
+
+        expect(response.body).toHaveProperty('success', true)
+        expect(response.body).toHaveProperty('data')
+        expect(typeof response.body.data).toBe('object')
+        
+        // Check that all expected status types are present
+        const expectedStatuses = ['online', 'offline', 'active', 'flowing']
+        expectedStatuses.forEach(status => {
+          expect(response.body.data).toHaveProperty(status)
+          expect(typeof response.body.data[status]).toBe('number')
+        })
       })
     })
 

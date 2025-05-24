@@ -1,4 +1,6 @@
-# server
+# Ebb Platform Server
+Server to provide cloud features for Ebb. This includes things like gamification, friends, and backups
+
 
 To install dependencies:
 

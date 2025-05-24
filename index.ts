@@ -2,7 +2,7 @@ import express, { json, urlencoded } from 'express'
 import { UserController } from './controllers/UserController.js'
 
 const app = express()
-const PORT = parseInt(process.env.PORT || '3001', 10)
+const PORT = parseInt(process.env.PORT || '8001', 10)
 
 // Middleware
 app.use(json())

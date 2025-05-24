@@ -15,7 +15,7 @@ tests/
 ├── fixtures/               # Test data and fixtures
 ├── helpers/
 │   ├── testServer.ts       # Test server lifecycle management
-│   └── authHelper.ts       # Authentication test utilities
+│   └── authHelper.ts       # Authentication test utilities (MockAuth)
 └── setup.ts               # Global test setup
 ```
 
@@ -62,6 +62,25 @@ Tests use a separate test environment with:
 - Server is started before each test suite and stopped after
 - Uses the same app instance as production but on different port
 
+## Authentication Testing Strategy
+
+### MockAuth Integration
+The tests now use **MockAuth** instead of real Supabase authentication:
+
+- **Test Mode**: When `NODE_ENV=test`, the auth middleware uses mock authentication
+- **Valid Test Token**: `Bearer valid_test_token` authenticates as a test user
+- **Invalid Tokens**: Any other token returns standard auth errors
+- **Repository Mocking**: Successful auth tests also mock the database layer
+
+### Test User
+```typescript
+const TEST_USER = {
+  id: 'test-user-123',
+  email: 'test@example.com',
+  role: 'user'
+}
+```
+
 ## Current Test Coverage
 
 ### Health Check API (`/health`)
@@ -89,6 +108,11 @@ Tests use a separate test environment with:
   - Returns 401 when token is invalid
   - Returns proper JSON content type for auth errors
   - Includes CORS headers even for auth errors
+- **Successful Authentication (MockAuth):**
+  - Returns 200 with valid test token
+  - Includes CORS headers on successful requests
+  - Returns JSON content type for successful requests
+  - Has consistent success response structure
 - **Endpoint Requirements:**
   - Verifies GET endpoint behavior
   - Verifies correct API path routing
@@ -101,7 +125,7 @@ Tests use a separate test environment with:
 ### UserProfileService Business Logic
 ✅ **userProfileService.test.ts** - Unit Tests
 - **Status Counts Logic:**
-  - Returns all 4 status types (online, offline, away, busy)
+  - Returns all 4 status types (online, offline, active, flowing)
   - Includes missing status types with count 0
   - Handles empty repository responses
   - Preserves existing counts and adds missing ones
@@ -111,10 +135,10 @@ Tests use a separate test environment with:
 ## Test Results Summary
 
 ```
-✅ 25 tests passing
-🔍 34 expect() assertions
+✅ 29 tests passing
+🔍 51 expect() assertions
 📁 4 test files
-⚡ ~750ms execution time
+⚡ ~600ms execution time
 ```
 
 ## Writing New Tests
@@ -183,9 +207,11 @@ describe('ServiceName', () => {
 
 ### Authentication Tests
 
-For testing authenticated endpoints, we focus on authentication requirements rather than mocking:
+For testing authenticated endpoints, we use MockAuth with repository mocking:
 
 ```typescript
+import { UserProfileRepo } from '../../repos/UserProfile';
+
 describe('Authentication Required', () => {
   it('should return 401 when no authorization header is provided', async () => {
     const response = await request(app)
@@ -208,6 +234,29 @@ describe('Authentication Required', () => {
       success: false,
       error: 'Invalid or expired token'
     });
+  });
+});
+
+describe('Successful Authentication (Mock)', () => {
+  let originalMethod: typeof UserProfileRepo.methodName;
+
+  beforeEach(() => {
+    // Mock the repository to avoid database calls
+    originalMethod = UserProfileRepo.methodName;
+    UserProfileRepo.methodName = async () => mockData;
+  });
+
+  afterEach(() => {
+    UserProfileRepo.methodName = originalMethod;
+  });
+
+  it('should return 200 with valid test token', async () => {
+    const response = await request(app)
+      .get('/api/protected-endpoint')
+      .set('Authorization', 'Bearer valid_test_token')
+      .expect(200);
+
+    expect(response.body.success).toBe(true);
   });
 });
 ```
@@ -288,6 +337,7 @@ it('should create user profile', async () => {
 - **Unit Tests**: Test business logic in isolation (services, utilities)
 - **E2E Tests**: Test HTTP endpoints, authentication, and integration behavior
 - **Mock Dependencies**: Use mocks for external dependencies in unit tests
+- **MockAuth**: Use MockAuth for authentication testing instead of real Supabase
 
 ## Continuous Integration
 
@@ -330,9 +380,9 @@ SUPPRESS_TEST_LOGS=false bun test
    - Database connection and migration tests
 
 2. **More Authentication Scenarios**
-   - Expired token handling
    - Different user roles and permissions
    - Token refresh scenarios
+   - Multiple authenticated endpoints
 
 3. **Additional API Endpoints**
    - User profile CRUD operations
