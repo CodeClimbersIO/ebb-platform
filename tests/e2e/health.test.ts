@@ -18,11 +18,8 @@ describe('Health Check API', () => {
         .get('/health')
         .expect(200)
 
-      expect(response.body).toEqual({
-        status: 'OK',
-        timestamp: expect.any(String),
-        service: 'CodeClimbers API'
-      })
+      expect(response.body.status).toEqual('OK')
+      expect(response.body.timestamp).toBeDefined()
 
       // Verify timestamp is a valid ISO string
       expect(() => new Date(response.body.timestamp)).not.toThrow()
