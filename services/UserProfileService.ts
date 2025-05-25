@@ -10,13 +10,16 @@ const getUserStatusCounts = async (): Promise<StatusCountsObject> => {
   try {
     const statusCounts = await UserProfileRepo.getUserStatusCounts()
     
-    const allStatuses = ['online', 'offline', 'active', 'flowing']
-    const result: StatusCountsObject = {}
-    
-    for (const status of allStatuses) {
-      const existing = statusCounts.find((sc: StatusCount) => sc.online_status === status)
-      result[status] = existing ? existing.count : 0
+    const result: StatusCountsObject = {
+      online: 0,
+      offline: 0,
+      active: 0,
+      flowing: 0
     }
+
+    statusCounts.forEach((statusCount: StatusCount) => {
+      result[statusCount.online_status] = statusCount.count
+    })
     
     return result
   } catch (error) {

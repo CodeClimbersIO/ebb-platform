@@ -19,7 +19,5 @@ services:
     restart: unless-stopped
     depends_on:
       - ebb-platform
-    environment:
-      - .env
     env_file:
       - .env 
