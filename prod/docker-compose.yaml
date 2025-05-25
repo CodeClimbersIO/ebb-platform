@@ -13,3 +13,13 @@ services:
       timeout: 10s
       retries: 3
       start_period: 40s 
+
+  uptime-monitor:
+    build: ./uptime
+    restart: unless-stopped
+    depends_on:
+      - ebb-platform
+    environment:
+      - .env
+    env_file:
+      - .env 
