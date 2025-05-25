@@ -27,7 +27,7 @@ app.get('/health', (req, res) => {
   res.json({ 
     status: 'OK', 
     timestamp: new Date().toISOString(),
-    service: 'CodeClimbers API'
+    service: 'Ebb Platform API'
   })
 })
 

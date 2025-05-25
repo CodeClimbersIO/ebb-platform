@@ -1,6 +1,6 @@
 import { UserProfileRepo } from '../repos/UserProfile'
 import type { StatusCount } from '../repos/UserProfile'
-import { ApiError } from '../middleware/errorHandler.js'
+import { ApiError } from '../middleware/errorHandler'
 
 type StatusCountsObject = {
   [key: string]: number
