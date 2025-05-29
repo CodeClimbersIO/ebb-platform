@@ -1,5 +1,6 @@
 import { Reader } from '@maxmind/geoip2-node'
 import { ApiError } from '../middleware/errorHandler.js'
+import type { Request } from 'express'
 
 export interface GeoLocationData {
   country: {
@@ -38,6 +39,32 @@ class GeoLocationServiceClass {
   constructor() {
     // Default database path - can be overridden via environment variable
     this.databasePath = process.env.GEOIP_DATABASE_PATH || '/path/to/maxmind-database.mmdb'
+  }
+
+  getClientIP = (req: Request): string => {
+    const forwarded = req.headers['x-forwarded-for'] as string
+    if (forwarded) {
+      const firstIP = forwarded.split(',')[0]?.trim()
+      if (firstIP) {
+        return firstIP
+      }
+    }
+    
+    const realIP = req.headers['x-real-ip'] as string
+    if (realIP) {
+      return realIP
+    }
+    
+    const cfConnectingIP = req.headers['cf-connecting-ip'] as string
+    if (cfConnectingIP) {
+      return cfConnectingIP
+    }
+    
+    if (req.ip) {
+      return req.ip
+    }
+    
+    return req.connection?.remoteAddress || req.socket?.remoteAddress || '127.0.0.1'
   }
 
   /**

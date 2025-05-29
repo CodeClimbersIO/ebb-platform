@@ -14,12 +14,20 @@ const getStatusCounts = async (req: Request, res: Response): Promise<void> => {
   })
 }
 
-
+const saveUserLocation = async (req: Request, res: Response): Promise<void> => {
+  const userLocation = await UserProfileService.saveUserLocation(req)
+  res.json({
+    success: true,
+    data: userLocation
+  })
+}
 
 // Initialize routes with authentication middleware and async error handling
 router.get('/status-counts', AuthMiddleware.authenticateToken, asyncHandler(getStatusCounts))
+router.post('/location', AuthMiddleware.authenticateToken, asyncHandler(saveUserLocation))
 
 export const UserController = {
   router,
   getStatusCounts,
+  saveUserLocation
 } 

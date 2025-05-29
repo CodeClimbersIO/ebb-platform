@@ -1,9 +1,12 @@
 import { db } from '../config/database.js'
+import type { GeoLocationData } from '../services/GeoLocationService.js';
 
 export interface UserProfile {
   id: number;
   user_id: string;
   online_status: 'online' | 'offline' | 'active' | 'flowing';
+  latitude: number; // rounded to nearest integer (within 111km accuracy)
+  longitude: number; // rounded to nearest integer (within 111km accuracy)
   created_at: Date;
   updated_at: Date;
 }
@@ -33,6 +36,19 @@ const getUserStatusCounts = async (): Promise<StatusCount[]> => {
   }
 }
 
+const saveUserLocation = async (userLocation: GeoLocationData): Promise<void> => {
+  if (!userLocation.location.latitude || !userLocation.location.longitude) {
+    throw new Error('Latitude or longitude is null')
+  }
+
+  await db(tableName).insert({
+    latitude: Math.round(userLocation.location.latitude),
+    longitude: Math.round(userLocation.location.longitude),
+    online_status: 'online'
+  })
+}
+
 export const UserProfileRepo = {
-  getUserStatusCounts
+  getUserStatusCounts,
+  saveUserLocation
 }
