@@ -28,7 +28,7 @@ jobs:
         run: |
           ssh $USER@$HOST << EOF
             cd ~/projects/codeclimbers/ebb-platform/prod
-            docker compose pull codeclimbers-ebb-platform
-            docker compose up -d --no-deps codeclimbers-ebb-platform
+            docker compose pull ebb-platform
+            docker compose up -d --no-deps ebb-platform
             docker image prune -f
           EOF

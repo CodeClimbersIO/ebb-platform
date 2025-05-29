@@ -21,7 +21,6 @@ describe('Health Check API', () => {
       expect(response.body.status).toEqual('OK')
       expect(response.body.timestamp).toBeDefined()
 
-      // Verify timestamp is a valid ISO string
       expect(() => new Date(response.body.timestamp)).not.toThrow()
       expect(new Date(response.body.timestamp).toISOString()).toBe(response.body.timestamp)
     })
