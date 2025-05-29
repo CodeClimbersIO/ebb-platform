@@ -1,10 +1,12 @@
 import { db } from '../config/database.js'
 import type { GeoLocationData } from '../services/GeoLocationService.js';
 
+export type OnlineStatus = 'online' | 'offline' | 'active' | 'flowing';
+
 export interface UserProfile {
   id: number;
   user_id: string;
-  online_status: 'online' | 'offline' | 'active' | 'flowing';
+  online_status: OnlineStatus;
   latitude: number; // rounded to nearest integer (within 111km accuracy)
   longitude: number; // rounded to nearest integer (within 111km accuracy)
   created_at: Date;
@@ -19,6 +21,7 @@ export interface StatusCount {
 export interface Location {
   latitude: number;
   longitude: number;
+  online_status: OnlineStatus;
 }
 
 const tableName = 'user_profile'
@@ -54,7 +57,7 @@ const saveUserLocation = async (userId: string, userLocation: GeoLocationData): 
 }
 
 const getUserLocations = async () => {
-  const result = await db(tableName).select<Location[]>('latitude', 'longitude')
+  const result = await db(tableName).select<Location[]>('latitude', 'longitude', 'online_status')
   return result
 }
 
