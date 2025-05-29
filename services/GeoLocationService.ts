@@ -61,10 +61,14 @@ class GeoLocationServiceClass {
     }
     
     if (req.ip) {
+      if (req.ip.startsWith('127.') || req.ip.startsWith('192.168.') || req.ip.startsWith('10.') || req.ip.startsWith('172.') || req.ip.startsWith('::1')) {
+        return '76.140.12.17'
+      }
       return req.ip
     }
     
-    return req.connection?.remoteAddress || req.socket?.remoteAddress || '127.0.0.1'
+    const remoteAddress = req.connection?.remoteAddress || req.socket?.remoteAddress
+    return remoteAddress || '127.0.0.1'
   }
 
   /**

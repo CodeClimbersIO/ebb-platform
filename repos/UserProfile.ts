@@ -36,16 +36,16 @@ const getUserStatusCounts = async (): Promise<StatusCount[]> => {
   }
 }
 
-const saveUserLocation = async (userLocation: GeoLocationData): Promise<void> => {
+const saveUserLocation = async (userId: string, userLocation: GeoLocationData): Promise<void> => {
   if (!userLocation.location.latitude || !userLocation.location.longitude) {
     throw new Error('Latitude or longitude is null')
   }
 
-  await db(tableName).insert({
+  await db(tableName).update({
     latitude: Math.round(userLocation.location.latitude),
     longitude: Math.round(userLocation.location.longitude),
     online_status: 'online'
-  })
+  }).where('id', userId)
 }
 
 export const UserProfileRepo = {

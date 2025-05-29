@@ -1,6 +1,8 @@
 import { UserProfileRepo } from '../repos/UserProfile'
 import type { StatusCount } from '../repos/UserProfile'
 import { ApiError } from '../middleware/errorHandler'
+import { GeoLocationService } from './GeoLocationService'
+import type { Request } from 'express'
 
 type StatusCountsObject = {
   [key: string]: number
@@ -28,6 +30,17 @@ const getUserStatusCounts = async (): Promise<StatusCountsObject> => {
   }
 }
 
+const saveUserLocation = async (req: Request): Promise<void> => {
+  if (!req.user) {
+    throw new ApiError('User ID is required', 400)
+  }
+  const userId = req.user.id
+  const clientIP = GeoLocationService.getClientIP(req)
+  const userLocation = await GeoLocationService.getLocationByIP(clientIP)
+  await UserProfileRepo.saveUserLocation(userId, userLocation)
+}
+
 export const UserProfileService = {
-  getUserStatusCounts
+  getUserStatusCounts,
+  saveUserLocation
 } 
