@@ -16,6 +16,11 @@ export interface StatusCount {
   count: number;
 }
 
+export interface Location {
+  latitude: number;
+  longitude: number;
+}
+
 const tableName = 'user_profile'
 
 
@@ -48,7 +53,13 @@ const saveUserLocation = async (userId: string, userLocation: GeoLocationData): 
   }).where('id', userId)
 }
 
+const getUserLocations = async () => {
+  const result = await db(tableName).select<Location[]>('latitude', 'longitude')
+  return result
+}
+
 export const UserProfileRepo = {
   getUserStatusCounts,
-  saveUserLocation
+  saveUserLocation,
+  getUserLocations
 }

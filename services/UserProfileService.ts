@@ -1,5 +1,5 @@
 import { UserProfileRepo } from '../repos/UserProfile'
-import type { StatusCount } from '../repos/UserProfile'
+import type { Location, StatusCount } from '../repos/UserProfile'
 import { ApiError } from '../middleware/errorHandler'
 import { GeoLocationService } from './GeoLocationService'
 import type { Request } from 'express'
@@ -40,7 +40,13 @@ const saveUserLocation = async (req: Request): Promise<void> => {
   await UserProfileRepo.saveUserLocation(userId, userLocation)
 }
 
+const getUserLocations = async (): Promise<Location[]> => {
+  const userLocations = await UserProfileRepo.getUserLocations()
+  return userLocations
+}
+
 export const UserProfileService = {
   getUserStatusCounts,
-  saveUserLocation
+  saveUserLocation,
+  getUserLocations
 } 
