@@ -52,6 +52,7 @@ const getDashboardInsights = async (req: Request): Promise<DashboardInsights> =>
 
   const { date } = req.query
   const userId = req.user.id
+  const userEmail = req.user.email
 
   if (!date || typeof date !== 'string') {
     throw new ApiError('Date is required', 400)
@@ -82,16 +83,29 @@ const getDashboardInsights = async (req: Request): Promise<DashboardInsights> =>
       topFriendFormatted: undefined as string | undefined
     }
 
-    if (friendsActivity.length > 0) {
-      const topFriendActivity = friendsActivity.reduce((prev, current) => 
-        current.totalMinutes > prev.totalMinutes ? current : prev
-      )
-      
-      const topFriendDetails = friends.find(f => f.friend_id === topFriendActivity.userId)
-      if (topFriendDetails) {
-        topFriend.topFriendEmail = topFriendDetails.friend_email
-        topFriend.topFriendMinutes = topFriendActivity.totalMinutes
-        topFriend.topFriendFormatted = formatMinutes(topFriendActivity.totalMinutes)
+    if (friends.length > 0) {
+      // Find the friend with the most activity
+      let topFriendActivity = null
+      if (friendsActivity.length > 0) {
+        topFriendActivity = friendsActivity.reduce((prev, current) => 
+          current.totalMinutes > prev.totalMinutes ? current : prev
+        )
+      }
+
+      // Compare user's activity with top friend's activity
+      if (!topFriendActivity || userMinutes >= topFriendActivity.totalMinutes) {
+        // User has the most activity (or tied for most)
+        topFriend.topFriendEmail = userEmail
+        topFriend.topFriendMinutes = userMinutes
+        topFriend.topFriendFormatted = formatMinutes(userMinutes)
+      } else {
+        // A friend has more activity than the user
+        const topFriendDetails = friends.find(f => f.friend_id === topFriendActivity.userId)
+        if (topFriendDetails) {
+          topFriend.topFriendEmail = topFriendDetails.friend_email
+          topFriend.topFriendMinutes = topFriendActivity.totalMinutes
+          topFriend.topFriendFormatted = formatMinutes(topFriendActivity.totalMinutes)
+        }
       }
     }
 

@@ -1,5 +1,6 @@
 import { FriendsRepo, type FriendRequest, type Friend, type FriendRequestWithUser } from '../repos/Friends.js'
 import { ApiError } from '../middleware/errorHandler.js'
+import { db } from '../config/database.js'
 import type { Request } from 'express'
 
 interface InviteFriendRequest {
@@ -129,25 +130,49 @@ const respondToFriendRequest = async (req: Request): Promise<{ friendRequest: Fr
       throw new ApiError('This friend request has already been responded to', 400)
     }
 
-    // Update the friend request status
-    const updatedFriendRequest = await FriendsRepo.updateFriendRequestStatus(
-      requestId,
-      action === 'accept' ? 'accepted' : 'rejected'
-    )
+    // Use a transaction to ensure atomicity
+    const result = await db.transaction(async (trx) => {
+      // Update the friend request status
+      const updatedFriendRequest = await trx('friend_request')
+        .where({ id: requestId })
+        .update({ 
+          status: action === 'accept' ? 'accepted' : 'rejected',
+          updated_at: new Date()
+        })
+        .returning('*')
+        .then(rows => rows[0])
 
-    let friendship: Friend | undefined
+      let friendship: Friend | undefined
 
-    // If accepted, create a friendship
-    if (action === 'accept') {
-      const fromUser = await FriendsRepo.getUserByAuthId(friendRequest.from_user_id)
-      if (!fromUser) {
-        throw new ApiError('User who sent the request not found', 404)
+      // If accepted, create a friendship
+      if (action === 'accept') {
+        const fromUser = await trx('auth.users')
+          .select('id', 'email')
+          .where('id', friendRequest.from_user_id)
+          .first()
+
+        if (!fromUser) {
+          throw new ApiError('User who sent the request not found', 404)
+        }
+
+        // Ensure user_id_1 < user_id_2 for the constraint
+        const [smallerId, largerId] = fromUser.id < userId ? [fromUser.id, userId] : [userId, fromUser.id]
+
+        friendship = await trx('friend')
+          .insert({
+            user_id_1: smallerId,
+            user_id_2: largerId,
+            friend_request_id: requestId,
+            status: 'active'
+          })
+          .returning('*')
+          .then(rows => rows[0])
       }
 
-      friendship = await FriendsRepo.createFriendship(fromUser.id, userId, friendRequest.id)
-    }
+      return { friendRequest: updatedFriendRequest, friendship }
+    })
 
-    return { friendRequest: updatedFriendRequest, friendship }
+    return result
   } catch (error) {
     if (error instanceof ApiError) {
       throw error
