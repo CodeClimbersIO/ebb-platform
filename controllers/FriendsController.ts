@@ -1,8 +1,9 @@
 import { Router } from 'express'
 import type { Request, Response } from 'express'
-import { FriendsService } from '../services/FriendsService.js'
-import { AuthMiddleware } from '../middleware/auth.js'
-import { asyncHandler } from '../middleware/errorHandler.js'
+import { FriendsService } from '../services/FriendsService'
+import { AuthMiddleware } from '../middleware/auth'
+import { asyncHandler } from '../middleware/errorHandler'
+import { FriendDashboardService } from '../services/FriendDashboardService'
 
 const router = Router()
 
@@ -49,12 +50,21 @@ const getFriends = async (req: Request, res: Response): Promise<void> => {
   })
 }
 
+const getDashboardInsights = async (req: Request, res: Response): Promise<void> => {
+  const insights = await FriendDashboardService.getDashboardInsights(req)
+  res.json({
+    success: true,
+    data: insights
+  })
+}
+
 // Initialize routes with authentication middleware and async error handling
 router.post('/invite', AuthMiddleware.authenticateToken, asyncHandler(inviteFriend))
 router.post('/requests/:requestId/respond', AuthMiddleware.authenticateToken, asyncHandler(respondToFriendRequest))
 router.get('/requests/sent', AuthMiddleware.authenticateToken, asyncHandler(getPendingRequestsSent))
 router.get('/requests/received', AuthMiddleware.authenticateToken, asyncHandler(getPendingRequestsReceived))
 router.get('/list', AuthMiddleware.authenticateToken, asyncHandler(getFriends))
+router.get('/dashboard-insights', AuthMiddleware.authenticateToken, asyncHandler(getDashboardInsights))
 
 export const FriendsController = {
   router,
@@ -62,5 +72,6 @@ export const FriendsController = {
   respondToFriendRequest,
   getPendingRequestsSent,
   getPendingRequestsReceived,
-  getFriends
+  getFriends,
+  getDashboardInsights
 } 

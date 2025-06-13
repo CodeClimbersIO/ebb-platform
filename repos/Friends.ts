@@ -1,4 +1,4 @@
-import { db } from '../config/database.js'
+import { db } from '../config/database'
 import type { FriendWithDetails } from '../types/friends'
 
 export interface FriendRequest {
