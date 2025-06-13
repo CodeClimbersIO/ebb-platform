@@ -150,11 +150,20 @@ const checkFriendRequestExists = async (fromUserId: string, toEmail: string): Pr
   return !!request
 }
 
+const getUserByAuthId = async (authId: string): Promise<{ id: string; email: string } | null> => {
+  const user = await db('auth.users')
+    .select('id', 'email')
+    .where('id', authId)
+    .first()  
+  
+  return user || null
+}
+
 const getUserByEmail = async (email: string): Promise<{ id: string; email: string } | null> => {
   const user = await db('auth.users')
     .select('id', 'email')
     .where('email', email)
-    .first()
+    .first()  
   
   return user || null
 }
@@ -169,5 +178,6 @@ export const FriendsRepo = {
   getPendingFriendRequestsSent,
   getPendingFriendRequestsReceived,
   getFriendsWithDetails,
+  getUserByAuthId,
   getUserByEmail
-} 
+}   

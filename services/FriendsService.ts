@@ -139,7 +139,7 @@ const respondToFriendRequest = async (req: Request): Promise<{ friendRequest: Fr
 
     // If accepted, create a friendship
     if (action === 'accept') {
-      const fromUser = await FriendsRepo.getUserByEmail(friendRequest.from_user_id)
+      const fromUser = await FriendsRepo.getUserByAuthId(friendRequest.from_user_id)
       if (!fromUser) {
         throw new ApiError('User who sent the request not found', 404)
       }
