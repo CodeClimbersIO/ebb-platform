@@ -1,6 +1,7 @@
 import express, { json, urlencoded } from 'express'
 import { UserController } from './controllers/UserController'
 import { GeoLocationController } from './controllers/GeoLocationController'
+import { FriendsController } from './controllers/FriendsController'
 import { GeoLocationService } from './services/GeoLocationService'
 import { ApiError } from './middleware/errorHandler'
 
@@ -36,6 +37,7 @@ app.get('/health', (req, res) => {
 // API Routes (protected by authentication middleware)
 app.use('/api/users', UserController.router)
 app.use('/api/geolocation', GeoLocationController.router)
+app.use('/api/friends', FriendsController.router)
 
 // 404 handler
 app.use('*', (req, res) => {
@@ -123,6 +125,7 @@ export const startServer = async (port: number = PORT) => {
       console.log(`📊 Health check: http://localhost:${port}/health`)
       console.log(`👥 Users API (auth required): http://localhost:${port}/api/users`)
       console.log(`🌍 Geolocation API (auth required): http://localhost:${port}/api/geolocation`)
+      console.log(`👋 Friends API (auth required): http://localhost:${port}/api/friends`)
       console.log('🔐 Authentication: Supabase JWT required for /api routes')
     })
   } catch (error) {
