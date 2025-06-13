@@ -20,8 +20,8 @@ export interface Friend {
 }
 
 export interface FriendRequestWithUser extends FriendRequest {
-  from_user_email?: string
-  to_user_email?: string
+  from_auth_user_email?: string
+  to_auth_user_email?: string
 }
 
 export interface FriendWithDetails {

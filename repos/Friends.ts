@@ -64,7 +64,7 @@ const updateFriendRequestStatus = async (id: string, status: FriendRequest['stat
 
 const getPendingFriendRequestsSent = async (userId: string): Promise<FriendRequestWithUser[]> => {
   const requests = await db(friendRequestTableName)
-    .select('friend_request.*', 'auth_users.email as to_user_email')
+    .select('friend_request.*', 'auth_users.email as to_auth_user_email')
     .leftJoin('auth.users as auth_users', 'friend_request.to_email', 'auth_users.email')
     .where('friend_request.from_user_id', userId)
     .where('friend_request.status', 'pending')
@@ -75,7 +75,7 @@ const getPendingFriendRequestsSent = async (userId: string): Promise<FriendReque
 
 const getPendingFriendRequestsReceived = async (userEmail: string): Promise<FriendRequestWithUser[]> => {
   const requests = await db(friendRequestTableName)
-    .select('friend_request.*', 'auth_users.email as from_user_email')
+    .select('friend_request.*', 'auth_users.email as from_auth_user_email')
     .leftJoin('auth.users as auth_users', 'friend_request.from_user_id', 'auth_users.id')
     .where('friend_request.to_email', userEmail.toLowerCase())
     .where('friend_request.status', 'pending')
