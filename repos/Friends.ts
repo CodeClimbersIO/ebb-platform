@@ -111,21 +111,40 @@ const getFriendships = async (userId: string): Promise<Friend[]> => {
   return friendships
 }
 
-const getFriendsWithDetails = async (userId: string): Promise<FriendWithDetails[]> => {
-  return db(friendTableName)
-    .where(function() {
-      this.where({ user_id_1: userId, status: 'active' })
-        .orWhere({ user_id_2: userId, status: 'active' })
-    })
-    .select(
-      'friend.id',
-      'friend.created_at',
-      'friend.updated_at',
-      db.raw('CASE WHEN friend.user_id_1 = ? THEN friend.user_id_2 ELSE friend.user_id_1 END as friend_id', [userId]),
-      db.raw('CASE WHEN friend.user_id_1 = ? THEN u2.email ELSE u1.email END as friend_email', [userId])
-    )
-    .leftJoin('auth.users as u1', 'friend.user_id_1', 'u1.id')
-    .leftJoin('auth.users as u2', 'friend.user_id_2', 'u2.id')
+const getFriendsWithDetails = async (userId: string, date?: string): Promise<FriendWithDetails[]> => {
+  let queryDate = date || new Date().toISOString().split('T')[0]
+    // Use WITH statement to get friends with their activity data
+    const query = `
+      WITH my_friends as (
+        SELECT 
+          "friend"."id", 
+          "friend"."created_at", 
+          "friend"."updated_at", 
+          CASE WHEN friend.user_id_1 = ? 
+            THEN friend.user_id_2 ELSE friend.user_id_1 
+          END as friend_id, 
+          CASE WHEN friend.user_id_1 = ? 
+            THEN u2.email ELSE u1.email 
+          END as friend_email 
+        FROM "friend" 
+        LEFT JOIN "auth"."users" as "u1" on "friend"."user_id_1" = "u1"."id"
+        LEFT JOIN "auth"."users" as "u2" on "friend"."user_id_2" = "u2"."id"
+        WHERE (
+          "user_id_1" = ? AND "status" = 'active' 
+          OR (
+            "user_id_2" = ? AND "status" = 'active'
+          )
+        )
+      ) 
+      SELECT 
+        mf.*, 
+        COALESCE(adr.total_duration_minutes, 0) as creating_time
+      FROM my_friends mf
+      LEFT JOIN activity_day_rollup adr ON adr.user_id = mf.friend_id AND adr.date = ?
+    `
+    
+    return db.raw(query, [userId, userId, userId, userId, queryDate]).then(result => result.rows)
+  
 }
 
 const checkFriendshipExists = async (userId1: string, userId2: string): Promise<boolean> => {

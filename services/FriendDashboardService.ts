@@ -71,10 +71,7 @@ const getDashboardInsights = async (req: Request): Promise<DashboardInsights> =>
     
     const percentile = await ActivityDayRollupRepo.getUserPercentile(userId, date)
     
-    const friends = await FriendsRepo.getFriendsWithDetails(userId)
-    const friendIds = friends.map(friend => friend.friend_id)
-    
-    const friendsActivity = await ActivityDayRollupRepo.getFriendsActivityByDate(friendIds, date)
+    const friends = await FriendsRepo.getFriendsWithDetails(userId, date)
     
     let topFriend = {
       hasFriends: friends.length > 0,
@@ -86,26 +83,27 @@ const getDashboardInsights = async (req: Request): Promise<DashboardInsights> =>
     if (friends.length > 0) {
       // Find the friend with the most activity
       let topFriendActivity = null
-      if (friendsActivity.length > 0) {
-        topFriendActivity = friendsActivity.reduce((prev, current) => 
-          current.totalMinutes > prev.totalMinutes ? current : prev
-        )
+      if (friends.length > 0) {
+        topFriendActivity = friends.reduce((prev, current) => {
+          const prevMinutes = prev.creating_time || 0
+          const currentMinutes = current.creating_time || 0
+          return currentMinutes > prevMinutes ? current : prev
+        })
       }
 
+      const topFriendMinutes = topFriendActivity?.creating_time || 0
+
       // Compare user's activity with top friend's activity
-      if (!topFriendActivity || userMinutes >= topFriendActivity.totalMinutes) {
+      if (!topFriendActivity || userMinutes >= topFriendMinutes) {
         // User has the most activity (or tied for most)
         topFriend.topFriendEmail = userEmail
         topFriend.topFriendMinutes = userMinutes
         topFriend.topFriendFormatted = formatMinutes(userMinutes)
       } else {
         // A friend has more activity than the user
-        const topFriendDetails = friends.find(f => f.friend_id === topFriendActivity.userId)
-        if (topFriendDetails) {
-          topFriend.topFriendEmail = topFriendDetails.friend_email
-          topFriend.topFriendMinutes = topFriendActivity.totalMinutes
-          topFriend.topFriendFormatted = formatMinutes(topFriendActivity.totalMinutes)
-        }
+        topFriend.topFriendEmail = topFriendActivity.friend_email
+        topFriend.topFriendMinutes = topFriendMinutes
+        topFriend.topFriendFormatted = formatMinutes(topFriendMinutes)
       }
     }
 

@@ -30,4 +30,5 @@ export interface FriendWithDetails {
   friend_email: string
   created_at: Date
   updated_at: Date
+  creating_time: number
 } 

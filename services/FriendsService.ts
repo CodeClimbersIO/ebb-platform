@@ -221,9 +221,10 @@ const getFriends = async (req: Request): Promise<any[]> => {
   }
 
   const userId = req.user.id
+  const date = req.query.date as string
 
   try {
-    return FriendsRepo.getFriendsWithDetails(userId)
+    return FriendsRepo.getFriendsWithDetails(userId, date)
   } catch (error) {
     console.error('Service error fetching friends:', error)
     throw new ApiError('Failed to fetch friends', 500)
