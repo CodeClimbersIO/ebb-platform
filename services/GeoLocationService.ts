@@ -43,31 +43,40 @@ class GeoLocationServiceClass {
 
   getClientIP = (req: Request): string => {
     const forwarded = req.headers['x-forwarded-for'] as string
+    console.log('forwarded', forwarded)
     if (forwarded) {
+      console.log('forwarded', forwarded)
       const firstIP = forwarded.split(',')[0]?.trim()
+      console.log('firstIP', firstIP)
       if (firstIP) {
         return firstIP
       }
     }
     
     const realIP = req.headers['x-real-ip'] as string
+    console.log('realIP', realIP)
     if (realIP) {
       return realIP
     }
     
     const cfConnectingIP = req.headers['cf-connecting-ip'] as string
+    console.log('cfConnectingIP', cfConnectingIP)
     if (cfConnectingIP) {
       return cfConnectingIP
     }
     
     if (req.ip) {
+
       if (req.ip.startsWith('127.') || req.ip.startsWith('192.168.') || req.ip.startsWith('10.') || req.ip.startsWith('172.') || req.ip.startsWith('::1')) {
         return '76.140.12.17'
       }
       return req.ip
     }
     
+    console.log('req.connection', req.connection)
+    console.log('req.socket', req.socket)
     const remoteAddress = req.connection?.remoteAddress || req.socket?.remoteAddress
+    console.log('remoteAddress', remoteAddress)
     return remoteAddress || '127.0.0.1'
   }
 

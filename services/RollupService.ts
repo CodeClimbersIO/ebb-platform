@@ -9,9 +9,6 @@ const updateActivity = async (req: Request): Promise<ActivityUpdate> => {
 
   
   const { tag_name, duration_minutes, date } = req.body
-  console.log('tag_name', tag_name)
-  console.log('duration_minutes', duration_minutes)
-  console.log('date', date)
   const userId = req.user.id
 
   if (!tag_name || typeof tag_name !== 'string') {
