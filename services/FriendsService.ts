@@ -12,34 +12,41 @@ interface AcceptRejectFriendRequest {
   action: 'accept' | 'reject';
 }
 
-const sendFriendRequestEmail = async (toEmail: string, fromUserEmail: string, message?: string): Promise<void> => {
+const sendFriendRequestEmail = async (toEmail: string, fromUserEmail: string, friendRequestId: string, existingUser: boolean = false): Promise<void> => {
   try {
-    // Using Supabase's built-in email functionality
-    // Note: This requires Supabase Auth to be properly configured with email templates
-    
-    const emailData = {
-      to: [toEmail],
-      subject: `Friend request from ${fromUserEmail}`,
-      html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <h2>You have a new friend request!</h2>
-          <p><strong>${fromUserEmail}</strong> would like to be your friend.</p>
-          ${message ? `<p><strong>Message:</strong> ${message}</p>` : ''}
-          <p>Log in to your account to accept or decline this request.</p>
-          <div style="margin-top: 20px; text-align: center;">
-            <a href="${process.env.FRONTEND_URL || 'http://localhost:3000'}" 
-               style="background-color: #4CAF50; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; display: inline-block;">
-              View Friend Request
-            </a>
-          </div>
-        </div>
-      `
+    const loopsApiKey = process.env.LOOPS_API_KEY
+    if (!loopsApiKey) {
+      console.error('LOOPS_API_KEY not configured, skipping email send')
+      return
     }
 
-    // Note: Supabase doesn't have a direct email sending API in the client library
-    // You might need to use a service like SendGrid, Resend, or implement this as a database function
-    // For now, we'll log the email that would be sent
-    console.log('Friend request email would be sent:', emailData)
+    const payload = {
+      transactionalId: existingUser ? 'cmc3u8e020700z00iason0m0f' : 'cmc6k356p2tf0zq0jg9y0atvr', // Your friend request template ID
+      email: toEmail,
+      dataVariables: {
+        to_email: toEmail,
+        from_email: fromUserEmail,
+        request_id: friendRequestId
+      }
+    }
+
+    const response = await fetch('https://app.loops.so/api/v1/transactional', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${loopsApiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload)
+    })
+
+    if (!response.ok) {
+      const errorText = await response.text()
+      console.error('Failed to send email via Loops:', response.status, errorText)
+      return
+    }
+
+    const result = await response.json()
+    console.log('Friend request email sent successfully via Loops:', result)
     
   } catch (error) {
     console.error('Failed to send friend request email:', error)
@@ -69,8 +76,9 @@ const inviteFriend = async (req: Request): Promise<FriendRequest> => {
     throw new ApiError('Friend request already sent to this email', 400)
   }
 
+  let userToInvite;
   try {
-    const userToInvite = await FriendsRepo.getUserByEmail(to_email)
+    userToInvite = await FriendsRepo.getUserByEmail(to_email)
     if (userToInvite) {
       const friendshipExists = await FriendsRepo.checkFriendshipExists(fromUserId, userToInvite.id)
       if (friendshipExists) {
@@ -83,10 +91,12 @@ const inviteFriend = async (req: Request): Promise<FriendRequest> => {
 
   try {
     const friendRequest = await FriendsRepo.createFriendRequest(fromUserId, to_email, message)
-    
+
     if (fromUserEmail) {
-      await sendFriendRequestEmail(to_email, fromUserEmail, message)
-    }
+      
+      await sendFriendRequestEmail(to_email, fromUserEmail, friendRequest.id, Boolean(userToInvite))
+    } 
+    
     
     return friendRequest
   } catch (error) {

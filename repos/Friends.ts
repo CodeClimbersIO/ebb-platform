@@ -28,6 +28,7 @@ export interface FriendRequestWithUser extends FriendRequest {
   to_user_id?: string;
   to_user_name?: string;
 }
+export interface FriendRequestUser { id: string; email: string }
 
 const friendRequestTableName = 'friend_request'
 const friendTableName = 'friend'
@@ -169,7 +170,7 @@ const checkFriendRequestExists = async (fromUserId: string, toEmail: string): Pr
   return !!request
 }
 
-const getUserByAuthId = async (authId: string): Promise<{ id: string; email: string } | null> => {
+const getUserByAuthId = async (authId: string): Promise<FriendRequestUser | null> => {
   const user = await db('auth.users')
     .select('id', 'email')
     .where('id', authId)
@@ -178,7 +179,7 @@ const getUserByAuthId = async (authId: string): Promise<{ id: string; email: str
   return user || null
 }
 
-const getUserByEmail = async (email: string): Promise<{ id: string; email: string } | null> => {
+const getUserByEmail = async (email: string): Promise<FriendRequestUser | null> => {
   const user = await db('auth.users')
     .select('id', 'email')
     .where('email', email)
