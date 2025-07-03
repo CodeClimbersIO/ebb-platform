@@ -30,10 +30,21 @@ const getUserLocations = async (req: Request, res: Response): Promise<void> => {
   })
 }
 
-// Initialize routes with authentication middleware and async error handling
+const getUserProfile = async (req: Request, res: Response): Promise<void> => {
+  if (!req.user) {
+    throw new ApiError('User authentication required', 401)
+  }
+  const userProfile = await UserProfileService.getUserProfile(req.user.id)
+  res.json({
+    success: true,
+    data: userProfile
+  })
+}
+
 router.get('/status-counts', AuthMiddleware.authenticateToken, asyncHandler(getStatusCounts))
 router.post('/location', AuthMiddleware.authenticateToken, asyncHandler(saveUserLocation))
 router.get('/locations', AuthMiddleware.authenticateToken, asyncHandler(getUserLocations))
+router.get('/profile/me', AuthMiddleware.authenticateToken, asyncHandler(getUserProfile))
 
 export const UserController = {
   router,

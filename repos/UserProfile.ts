@@ -61,8 +61,14 @@ const getUserLocations = async () => {
   return result
 }
 
+const getUserProfile = async (userId: string) => {
+  const [result] = await db(tableName).select<UserProfile[]>('*').where('id', userId)
+  return result
+}
+
 export const UserProfileRepo = {
   getUserStatusCounts,
   saveUserLocation,
-  getUserLocations
+  getUserLocations,
+  getUserProfile
 }
