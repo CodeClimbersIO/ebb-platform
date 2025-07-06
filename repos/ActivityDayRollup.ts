@@ -130,18 +130,22 @@ export const ActivityDayRollupRepo = {
   },
 
   async getAverageWeeklyHoursForActiveUsers(): Promise<number> {
-    // Get users who have activity in the last 7 days
     const sevenDaysAgo = new Date()
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
-    const sevenDaysAgoStr = sevenDaysAgo.toISOString().split('T')[0]
+    const sevenDaysAgoTimestamp = sevenDaysAgo.toISOString()
+    const sevenDaysAgoDateStr = sevenDaysAgo.toISOString().split('T')[0]
 
-    const result = await db(tableName)
+    const query = db(tableName)
+      .join('user_profile', `${tableName}.user_id`, 'user_profile.id')
       .select(
-        db.raw('COUNT(DISTINCT user_id) as active_users'),
+        db.raw('COUNT(DISTINCT activity_day_rollup.user_id) as active_users'),
         db.raw('SUM(total_duration_minutes) / 60 as total_hours')
       )
-      .where('date', '>=', sevenDaysAgoStr)
+      .whereRaw('user_profile.last_check_in >= ?', [sevenDaysAgoTimestamp])
+      .whereRaw('activity_day_rollup.date >= ?', [sevenDaysAgoDateStr])
       .first()
+
+    const result = await query
 
     const activeUsers = parseInt(result?.active_users as string) || 0
     const totalHours = parseFloat(result?.total_hours as string) || 0
@@ -159,7 +163,7 @@ export const ActivityDayRollupRepo = {
         'date',
         db.raw('SUM(total_duration_minutes) as total_minutes')
       )
-      .where('date', '>=', startDateStr)
+      .whereRaw('date >= ?', [startDateStr])  
       .groupBy('date')
       .orderBy('date', 'desc')
 
