@@ -3,6 +3,7 @@ import { UserController } from './controllers/UserController'
 import { GeoLocationController } from './controllers/GeoLocationController'
 import { FriendsController } from './controllers/FriendsController'
 import { RollupController } from './controllers/RollupController'
+import { MarketingController } from './controllers/MarketingController'
 import { GeoLocationService } from './services/GeoLocationService'
 import { ApiError } from './middleware/errorHandler'
 
@@ -40,6 +41,9 @@ app.use('/api/users', UserController.router)
 app.use('/api/geolocation', GeoLocationController.router)
 app.use('/api/friends', FriendsController.router)
 app.use('/api/rollup', RollupController.router)
+
+// Public API Routes (no authentication required)
+app.use('/api/marketing', MarketingController.router)
 
 // 404 handler
 app.use('*', (req, res) => {
@@ -129,7 +133,8 @@ export const startServer = async (port: number = PORT) => {
       console.log(`🌍 Geolocation API (auth required): http://localhost:${port}/api/geolocation`)
       console.log(`👋 Friends API (auth required): http://localhost:${port}/api/friends`)
       console.log(`🏭 Rollup API (auth required): http://localhost:${port}/api/rollup`)
-      console.log('🔐 Authentication: Supabase JWT required for /api routes')
+      console.log(`📈 Marketing API (public): http://localhost:${port}/api/marketing`)
+      console.log('🔐 Authentication: Supabase JWT required for /api routes (except marketing)')
     })
   } catch (error) {
     console.error('❌ Failed to start server:', error)

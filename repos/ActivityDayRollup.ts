@@ -103,5 +103,85 @@ export const ActivityDayRollupRepo = {
       userId: row.user_id,
       totalMinutes: parseInt(row.total_minutes as string) || 0
     }))
+  },
+
+  async getWeeklyActivityAggregation(): Promise<Array<{ week_start: string; total_hours: number }>> {
+    const result = await db(tableName)
+      .select(
+        db.raw('DATE_TRUNC(\'week\', date) as week_start'),
+        db.raw('SUM(total_duration_minutes) / 60 as total_hours')
+      )
+      .groupBy(db.raw('DATE_TRUNC(\'week\', date)'))
+      .orderByRaw('DATE_TRUNC(\'week\', date) ASC')
+
+    return result.map((row: any) => ({
+      week_start: row.week_start,
+      total_hours: parseFloat(row.total_hours as string) || 0
+    }))
+  },
+
+  async getTotalHoursCreating(): Promise<number> {
+    const result = await db(tableName)
+      .sum('total_duration_minutes as total')
+      .first()
+
+    const totalMinutes = parseInt(result?.total as string) || 0
+    return totalMinutes / 60 // Convert to hours
+  },
+
+  async getAverageWeeklyHoursForActiveUsers(): Promise<number> {
+    // Get users who have activity in the last 7 days
+    const sevenDaysAgo = new Date()
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
+    const sevenDaysAgoStr = sevenDaysAgo.toISOString().split('T')[0]
+
+    const result = await db(tableName)
+      .select(
+        db.raw('COUNT(DISTINCT user_id) as active_users'),
+        db.raw('SUM(total_duration_minutes) / 60 as total_hours')
+      )
+      .where('date', '>=', sevenDaysAgoStr)
+      .first()
+
+    const activeUsers = parseInt(result?.active_users as string) || 0
+    const totalHours = parseFloat(result?.total_hours as string) || 0
+
+    return activeUsers > 0 ? totalHours / activeUsers : 0
+  },
+
+  async getDailyActivityForPeriod(days: number = 90): Promise<Array<{ date: string; total_minutes: number }>> {
+    const startDate = new Date()
+    startDate.setDate(startDate.getDate() - days)
+    const startDateStr = startDate.toISOString().split('T')[0]
+
+    const result = await db(tableName)
+      .select(
+        'date',
+        db.raw('SUM(total_duration_minutes) as total_minutes')
+      )
+      .where('date', '>=', startDateStr)
+      .groupBy('date')
+      .orderBy('date', 'desc')
+
+    return result.map((row: any) => ({
+      date: row.date,
+      total_minutes: parseInt(row.total_minutes as string) || 0
+    }))
+  },
+
+  async getTopCreatingDays(limit: number = 10): Promise<Array<{ date: string; total_hours: number }>> {
+    const result = await db(tableName)
+      .select(
+        'date',
+        db.raw('SUM(total_duration_minutes) / 60 as total_hours')
+      )
+      .groupBy('date')
+      .orderByRaw('SUM(total_duration_minutes) DESC')
+      .limit(limit)
+
+    return result.map((row: any) => ({
+      date: row.date,
+      total_hours: parseFloat(row.total_hours as string) || 0
+    }))
   }
 } 
