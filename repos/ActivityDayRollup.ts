@@ -109,12 +109,25 @@ export const ActivityDayRollupRepo = {
     const result = await db(tableName)
       .select(
         db.raw('DATE_TRUNC(\'week\', date) as week_start'),
-        db.raw('SUM(total_duration_minutes) / 60 as total_hours')
+        db.raw('SUM(total_duration_minutes) / 60 as total_hours'),
+        db.raw('COUNT(DISTINCT date) as days_count')
       )
       .groupBy(db.raw('DATE_TRUNC(\'week\', date)'))
       .orderByRaw('DATE_TRUNC(\'week\', date) ASC')
 
-    return result.map((row: any) => ({
+    // Filter out the current week if it has less than 5 days
+    const now = new Date()
+    const currentWeekStart = new Date(now)
+    currentWeekStart.setDate(now.getDate() - now.getDay()) // Start of current week (Sunday)
+    currentWeekStart.setHours(0, 0, 0, 0)
+    
+    const filteredResult = result.filter((row: any) => {
+      const weekStart = new Date(row.week_start)
+      const daysCount = parseInt(row.days_count as string) || 0
+        return daysCount >= 5
+    })
+
+    return filteredResult.map((row: any) => ({
       week_start: row.week_start,
       total_hours: parseFloat(row.total_hours as string) || 0
     }))
