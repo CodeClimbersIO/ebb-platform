@@ -4,7 +4,9 @@ import { GeoLocationController } from './controllers/GeoLocationController'
 import { FriendsController } from './controllers/FriendsController'
 import { RollupController } from './controllers/RollupController'
 import { MarketingController } from './controllers/MarketingController'
+import { JobQueueController } from './controllers/JobQueueController'
 import { GeoLocationService } from './services/GeoLocationService'
+import { jobQueueService } from './services/JobQueueService'
 import { ApiError } from './middleware/errorHandler'
 
 const app = express()
@@ -41,6 +43,7 @@ app.use('/api/users', UserController.router)
 app.use('/api/geolocation', GeoLocationController.router)
 app.use('/api/friends', FriendsController.router)
 app.use('/api/rollup', RollupController.router)
+app.use('/api/jobs', JobQueueController.router)
 
 // Public API Routes (no authentication required)
 app.use('/api/marketing', MarketingController.router)
@@ -109,6 +112,28 @@ process.on('unhandledRejection', (reason, promise) => {
   console.error('Timestamp:', new Date().toISOString())
 })
 
+// Graceful shutdown handlers
+process.on('SIGTERM', async () => {
+  console.log('🛑 SIGTERM received, shutting down gracefully...')
+  await gracefulShutdown()
+})
+
+process.on('SIGINT', async () => {
+  console.log('🛑 SIGINT received, shutting down gracefully...')
+  await gracefulShutdown()
+})
+
+async function gracefulShutdown() {
+  try {
+    await jobQueueService.shutdown()
+    console.log('✅ Graceful shutdown completed')
+    process.exit(0)
+  } catch (error) {
+    console.error('❌ Error during graceful shutdown:', error)
+    process.exit(1)
+  }
+}
+
 // Function to start the server
 export const startServer = async (port: number = PORT) => {
   try {
@@ -124,6 +149,15 @@ export const startServer = async (port: number = PORT) => {
       console.warn('   To enable geolocation, set GEOIP_DATABASE_PATH environment variable.')
     }
     
+    // Initialize Job Queue Service (will fail gracefully if Redis not available)
+    try {
+      await jobQueueService.initialize()
+    } catch (error) {
+      console.warn('⚠️  Job Queue Service initialization failed:', error)
+      console.warn('   Scheduled user monitoring jobs will not be available.')
+      console.warn('   To enable job queue, ensure Redis is running and properly configured.')
+    }
+    
     console.log('✅ Services initialized successfully')
     
     return app.listen(port, () => {
@@ -134,6 +168,8 @@ export const startServer = async (port: number = PORT) => {
       console.log(`👋 Friends API (auth required): http://localhost:${port}/api/friends`)
       console.log(`🏭 Rollup API (auth required): http://localhost:${port}/api/rollup`)
       console.log(`📈 Marketing API (public): http://localhost:${port}/api/marketing`)
+      console.log(`⚙️  Job Queue API (auth required): http://localhost:${port}/api/jobs`)
+      console.log(`⚙️  Job Queue: User monitoring jobs scheduled (requires Redis)`)
       console.log('🔐 Authentication: Supabase JWT required for /api routes (except marketing)')
     })
   } catch (error) {

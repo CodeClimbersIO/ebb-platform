@@ -6,15 +6,33 @@ services:
       - "8001:8001"
     env_file:
       - .env
+    environment:
+      - REDIS_HOST=redis
     restart: always
     volumes:
       - ../location_db:/location_db:ro
+    depends_on:
+      - redis
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:8001/health || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 40s
+
+  redis:
+    image: redis:7-alpine
+    container_name: ebb-redis
+    restart: always
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
   uptime-monitor:
     build: ./uptime
@@ -23,3 +41,6 @@ services:
       - ebb-platform
     env_file:
       - .env
+
+volumes:
+  redis_data:

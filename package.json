@@ -12,7 +12,9 @@
   "dependencies": {
     "@maxmind/geoip2-node": "^6.1.0",
     "@supabase/supabase-js": "^2.38.0",
+    "bullmq": "^5.4.0",
     "express": "^4.18.2",
+    "ioredis": "^5.3.2",
     "knex": "^2.5.1",
     "pg": "^8.11.3"
   },
