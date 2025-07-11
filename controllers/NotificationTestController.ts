@@ -4,7 +4,7 @@ import { NotificationEngine } from '../services/NotificationEngine'
 import { getNotificationConfig } from '../config/notifications'
 import { AuthMiddleware } from '../middleware/auth'
 import { asyncHandler, ApiError } from '../middleware/errorHandler'
-import type { PaidUserRecord, NewUserRecord } from '../types/jobs'
+import type { PaidUserRecord, NewUserRecord, InactiveUserRecord } from '../types/jobs'
 
 const router = Router()
 
@@ -25,7 +25,7 @@ const testDiscordNotification = async (req: Request, res: Response): Promise<voi
     const notificationEngine = new NotificationEngine(config)
 
     // Create test user data based on notification type
-    let testUser: PaidUserRecord | NewUserRecord
+    let testUser: PaidUserRecord | NewUserRecord | InactiveUserRecord
     let notificationResults
 
     switch (type) {
@@ -59,7 +59,7 @@ const testDiscordNotification = async (req: Request, res: Response): Promise<voi
           email: userEmail,
           last_activity: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000), // 7 days ago
           days_inactive: 7
-        } as any
+        } as InactiveUserRecord
 
         notificationResults = await notificationEngine.sendInactiveUserNotifications(testUser, ['discord'])
         break

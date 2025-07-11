@@ -1,5 +1,7 @@
 import type { PaidUserRecord, NewUserRecord, InactiveUserRecord } from './jobs'
 
+export type { PaidUserRecord, NewUserRecord, InactiveUserRecord } from './jobs'
+
 export type NotificationType = 'paid_user' | 'new_user' | 'inactive_user' | 'weekly_report'
 export type NotificationChannel = 'discord' | 'email' | 'slack' | 'sms'
 
