@@ -1,28 +1,29 @@
-// Job types and data interfaces
-
+// Job data interfaces
 export interface NewUserCheckJobData {
-  // No specific data needed for this job
+  [key: string]: any
 }
 
 export interface PaidUserCheckJobData {
-  // No specific data needed for this job  
+  [key: string]: any
 }
 
 export interface InactiveUserCheckJobData {
-  // No specific data needed for this job
+  [key: string]: any
 }
 
 export interface TestJobData {
-  // No specific data needed for this test job
+  [key: string]: any
 }
 
-export interface UserMetrics {
-  newUsers: number
-  paidUsers: number
-  inactiveUsers: number
-  totalUsers: number
+// Job result interface
+export interface JobResult {
+  success: boolean
+  message: string
+  data?: any
+  processedAt: Date
 }
 
+// User record interfaces
 export interface NewUserRecord {
   id: string
   email: string
@@ -34,6 +35,9 @@ export interface PaidUserRecord {
   email: string
   subscription_status: string
   paid_at: Date
+  license_id?: string
+  stripe_payment_id?: string
+  stripe_customer_id?: string
 }
 
 export interface InactiveUserRecord {
@@ -43,30 +47,51 @@ export interface InactiveUserRecord {
   days_inactive: number
 }
 
-// Job result types
-export interface JobResult {
-  success: boolean
-  message: string
-  data?: any
-  processedAt: Date
+export interface UserMetrics {
+  newUsers: number
+  paidUsers: number
+  inactiveUsers: number
+  totalUsers: number
 }
 
-// Job queue names
+export interface UserActivitySummary {
+  activeUsers: number
+  totalUsers: number
+  averageHoursPerUser: number
+}
+
+// Job queues
 export const JOB_QUEUES = {
   USER_MONITORING: 'user-monitoring',
 } as const
 
+export type JobQueue = typeof JOB_QUEUES[keyof typeof JOB_QUEUES]
+
 // Job types
 export const JOB_TYPES = {
   CHECK_NEW_USERS: 'check-new-users',
-  CHECK_PAID_USERS: 'check-paid-users', 
+  CHECK_PAID_USERS: 'check-paid-users',
   CHECK_INACTIVE_USERS: 'check-inactive-users',
   TEST_JOB: 'test-job',
 } as const
 
+export type JobType = typeof JOB_TYPES[keyof typeof JOB_TYPES]
+
 // Job priorities
 export const JOB_PRIORITIES = {
-  HIGH: 1,
-  NORMAL: 10,
-  LOW: 20,
-} as const 
+  LOW: 1,
+  NORMAL: 5,
+  HIGH: 10,
+  CRITICAL: 15
+} as const
+
+export type JobPriority = typeof JOB_PRIORITIES[keyof typeof JOB_PRIORITIES]
+
+// Notification types
+export interface NotificationResult {
+  success: boolean
+  message: string
+  userId: string
+  notificationId?: string
+  error?: string
+} 

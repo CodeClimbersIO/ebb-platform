@@ -5,6 +5,7 @@ import { FriendsController } from './controllers/FriendsController'
 import { RollupController } from './controllers/RollupController'
 import { MarketingController } from './controllers/MarketingController'
 import { JobQueueController } from './controllers/JobQueueController'
+import { NotificationTestController } from './controllers/NotificationTestController'
 import { GeoLocationService } from './services/GeoLocationService'
 import { jobQueueService } from './services/JobQueueService'
 import { ApiError } from './middleware/errorHandler'
@@ -44,6 +45,7 @@ app.use('/api/geolocation', GeoLocationController.router)
 app.use('/api/friends', FriendsController.router)
 app.use('/api/rollup', RollupController.router)
 app.use('/api/jobs', JobQueueController.router)
+app.use('/api/notifications', NotificationTestController.router)
 
 // Public API Routes (no authentication required)
 app.use('/api/marketing', MarketingController.router)

@@ -2,8 +2,6 @@ import { db } from '../config/database'
 import type { NewUserRecord, PaidUserRecord, InactiveUserRecord } from '../types/jobs'
 
 const authUsersTable = 'auth.users'
-const userProfileTable = 'user_profile'
-const activityRollupTable = 'activity_day_rollup'
 
 /**
  * Get users created within the last specified minutes
@@ -15,14 +13,55 @@ const getNewUsers = async (withinMinutes: number = 10): Promise<NewUserRecord[]>
 }
 
 /**
- * Get paid users - This assumes a subscription or payment table exists.
- * You'll need to update this based on your actual payment/subscription schema.
- * For now, this is a placeholder that checks for users with a 'paid' role or similar.
+ * Get paid users - Users who purchased a license in the last specified minutes
+ * This looks for licenses with purchase_date within the timeframe and a valid stripe_payment_id
  */
 const getPaidUsers = async (withinMinutes: number = 10): Promise<PaidUserRecord[]> => {
-  console.log(`💳 [STUB] Checking for paid users in last ${withinMinutes} minutes`)
-  // TODO: Implement actual payment/subscription query based on your schema
-  return []
+  try {
+    console.log(`💳 Checking for paid users in last ${withinMinutes} minutes`)
+    
+    const cutoffTime = new Date()
+    cutoffTime.setMinutes(cutoffTime.getMinutes() - withinMinutes)
+
+    // Query for users who recently purchased licenses with stripe payment
+    const query = `
+      SELECT 
+        l.id as license_id,
+        l.user_id,
+        l.purchase_date,
+        l.license_type,
+        l.stripe_payment_id,
+        l.stripe_customer_id,
+        u.email
+      FROM license l
+      JOIN auth.users u ON u.id = l.user_id
+      WHERE l.purchase_date >= ?
+        AND l.stripe_payment_id IS NOT NULL
+        AND l.stripe_payment_id != ''
+        AND l.status = 'active'
+      ORDER BY l.purchase_date DESC
+    `
+    
+    const result = await db.raw(query, [cutoffTime.toISOString()])
+    
+    console.log(`📊 Found ${result.rows.length} recently purchased licenses with Stripe payments`)
+    
+    return result.rows.map((row: any) => {
+      return {
+        id: row.user_id,
+        email: row.email,
+        subscription_status: row.license_type || 'paid',
+        paid_at: new Date(row.purchase_date),
+        license_id: row.license_id,
+        stripe_payment_id: row.stripe_payment_id,
+        stripe_customer_id: row.stripe_customer_id
+      }
+    })
+  } catch (error) {
+    console.error('Error fetching paid users from license table:', error)
+    // Return empty array on error to avoid breaking the job
+    return []
+  }
 }
 
 /**

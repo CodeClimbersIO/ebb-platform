@@ -1,5 +1,9 @@
 import { Job } from 'bullmq'
 import { UserMonitoringRepo } from '../repos/UserMonitoring'
+import { UserNotificationsRepo } from '../repos/UserNotifications'
+import { NotificationService } from './NotificationService'
+import { NotificationEngine } from './NotificationEngine'
+import { getNotificationConfig } from '../config/notifications'
 import type { 
   NewUserCheckJobData, 
   PaidUserCheckJobData, 
@@ -34,20 +38,131 @@ export const processNewUserCheck = async (job: Job<NewUserCheckJobData>): Promis
   }
 }
 
+// Initialize notification engine with centralized configuration
+const getNotificationEngine = (): NotificationEngine => {
+  const config = getNotificationConfig()
+  return new NotificationEngine(config)
+}
+
 /**
  * Process job to check for paid users (runs every 10 minutes)
+ * Implements idempotent notifications - only sends notification once per user per channel
  */
 export const processPaidUserCheck = async (job: Job<PaidUserCheckJobData>): Promise<JobResult> => {
   try {
     console.log('💳 Processing paid user check job...')
     
-    const paidUsers = await UserMonitoringRepo.getPaidUsers(10) // Last 10 minutes
-    console.log('✅ Paid user check completed (stub implementation)')
+    // Get users who upgraded to paid in the last 10 minutes
+    const paidUsers = await UserMonitoringRepo.getPaidUsers(10)
+    console.log(`📊 Found ${paidUsers.length} recently paid users`)
+    
+    if (paidUsers.length === 0) {
+      console.log('✅ No new paid users to notify')
+      return {
+        success: true,
+        message: 'No new paid users found',
+        data: { 
+          totalFound: 0,
+          newNotifications: 0,
+          alreadyNotified: 0
+        },
+        processedAt: new Date()
+      }
+    }
+    
+    // Initialize notification engine
+    const notificationEngine = getNotificationEngine()
+    const targetChannels = notificationEngine.getConfig().events.paid_user
+    
+    // Create a map of user ID to reference ID for idempotency checking
+    const userNotificationMap: { [userId: string]: string } = {}
+    paidUsers.forEach(user => {
+      // Generate reference ID based on license ID if available, otherwise use timestamp
+      const referenceId = user.license_id 
+        ? `paid_license_${user.license_id}` 
+        : `paid_${user.id}_${user.paid_at.getTime()}`
+      userNotificationMap[user.id] = referenceId
+    })
+    
+    // For each channel, filter out users we've already notified (per-channel idempotency)
+    const channelResults: { [channel: string]: any } = {}
+    let totalNotificationsSent = 0
+    let totalNotificationsFailed = 0
+    
+    for (const channel of targetChannels) {
+      console.log(`📨 Processing ${channel} notifications...`)
+      
+      // Filter out users already notified via this specific channel
+      const unnotifiedUserIds = await UserNotificationsRepo.filterUnnotifiedUsersByChannelReference(
+        userNotificationMap, 
+        'paid_user',
+        channel as any
+      )
+      
+      // Get the user objects for unnotified users
+      const usersToNotify = paidUsers.filter(user => unnotifiedUserIds.includes(user.id))
+      
+      console.log(`📨 Sending ${channel} notifications to ${usersToNotify.length} users (${paidUsers.length - usersToNotify.length} already notified via ${channel})`)
+      
+      if (usersToNotify.length > 0) {
+        // Send notifications for new paid users via this channel
+        const notificationResults = await notificationEngine.sendBatchNotifications(
+          usersToNotify, 
+          'paid_user',
+          [channel as any]
+        )
+        
+        // Record notifications in database to ensure per-channel idempotency
+        const recordingPromises = notificationResults
+          .filter(result => result.success)
+          .map(result => 
+            UserNotificationsRepo.recordChannelNotification(
+              result.userId, 
+              'paid_user',
+              result.referenceId,
+              result.channel as any,
+              result,
+              { 
+                notificationId: result.notificationId,
+                sentAt: result.timestamp.toISOString()
+              }
+            )
+          )
+        
+        await Promise.all(recordingPromises)
+        
+        const successCount = notificationResults.filter(r => r.success).length
+        const failCount = notificationResults.filter(r => !r.success).length
+        
+        channelResults[channel] = {
+          sent: successCount,
+          failed: failCount,
+          alreadyNotified: paidUsers.length - usersToNotify.length
+        }
+        
+        totalNotificationsSent += successCount
+        totalNotificationsFailed += failCount
+      } else {
+        channelResults[channel] = {
+          sent: 0,
+          failed: 0,
+          alreadyNotified: paidUsers.length
+        }
+      }
+    }
+    
+    console.log(`✅ Paid user check completed - ${totalNotificationsSent} notifications sent, ${totalNotificationsFailed} failed`)
+    console.log(`📊 Channel breakdown:`, channelResults)
     
     return {
       success: true,
-      message: `Paid user check completed - found ${paidUsers.length} users`,
-      data: { count: paidUsers.length },
+      message: `Paid user check completed - sent ${totalNotificationsSent} notifications across ${targetChannels.length} channels`,
+      data: { 
+        totalFound: paidUsers.length,
+        newNotifications: totalNotificationsSent,
+        failedNotifications: totalNotificationsFailed,
+        channelResults
+      },
       processedAt: new Date()
     }
   } catch (error) {
