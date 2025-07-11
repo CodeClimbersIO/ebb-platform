@@ -7,9 +7,35 @@ const authUsersTable = 'auth.users'
  * Get users created within the last specified minutes
  */
 const getNewUsers = async (withinMinutes: number = 10): Promise<NewUserRecord[]> => {
-  console.log(`🔍 [STUB] Checking for new users in last ${withinMinutes} minutes`)
-  // TODO: Implement actual database query
-  return []
+  try {
+    console.log(`🔍 Checking for new users in last ${withinMinutes} minutes`)
+    
+    const cutoffTime = new Date()
+    cutoffTime.setMinutes(cutoffTime.getMinutes() - withinMinutes)
+
+    const query = `
+      SELECT 
+        id,
+        email,
+        created_at
+      FROM auth.users
+      WHERE created_at >= ?
+      ORDER BY created_at DESC
+    `
+    
+    const result = await db.raw(query, [cutoffTime.toISOString()])
+    
+    console.log(`📊 Found ${result.rows.length} new users`)
+    
+    return result.rows.map((row: any) => ({
+      id: row.id,
+      email: row.email,
+      created_at: new Date(row.created_at)
+    }))
+  } catch (error) {
+    console.error('Error fetching new users:', error)
+    return []
+  }
 }
 
 /**
@@ -67,10 +93,40 @@ const getPaidUsers = async (withinMinutes: number = 10): Promise<PaidUserRecord[
 /**
  * Get users who have been inactive for more than the specified days
  */
-const getInactiveUsers = async (inactiveDays: number = 7): Promise<InactiveUserRecord[]> => {
-  console.log(`😴 [STUB] Checking for users inactive for ${inactiveDays}+ days`)
-  // TODO: Implement actual inactive user query
-  return []
+const getInactiveUsers = async (inactiveDays: number = 5): Promise<InactiveUserRecord[]> => {
+  try {
+    console.log(`😴 Checking for users inactive for ${inactiveDays}+ days`)
+    
+    const cutoffTime = new Date()
+    cutoffTime.setDate(cutoffTime.getDate() - inactiveDays)
+
+    const query = `
+      SELECT 
+        up.id,
+        u.email,
+        up.last_check_in,
+        EXTRACT(DAY FROM NOW() - up.last_check_in) as days_inactive
+      FROM user_profile up
+      JOIN auth.users u ON u.id = up.id
+      WHERE up.last_check_in <= ?
+        AND up.last_check_in IS NOT NULL
+      ORDER BY up.last_check_in ASC
+    `
+    
+    const result = await db.raw(query, [cutoffTime.toISOString()])
+    
+    console.log(`📊 Found ${result.rows.length} inactive users`)
+    
+    return result.rows.map((row: any) => ({
+      id: row.id,
+      email: row.email,
+      last_activity: new Date(row.last_check_in),
+      days_inactive: parseInt(row.days_inactive) || 0
+    }))
+  } catch (error) {
+    console.error('Error fetching inactive users:', error)
+    return []
+  }
 }
 
 /**
