@@ -9,8 +9,12 @@ import type {
   PaidUserCheckJobData, 
   InactiveUserCheckJobData,
   TestJobData,
-  JobResult 
+  JobResult,
+  PaidUserRecord,
+  NewUserRecord,
+  InactiveUserRecord
 } from '../types/jobs'
+import type { NotificationChannel } from '../types/notifications'
 
 /**
  * Process job to check for new users (runs every 10 minutes)
@@ -63,7 +67,7 @@ const getNotificationEngine = (): NotificationEngine => {
  * Generic function to process notifications with idempotency for any notification type
  * Exported for testing purposes
  */
-export const processNotificationsWithIdempotency = async <T extends { id: string; email: string }>(
+export const processNotificationsWithIdempotency = async <T extends PaidUserRecord | NewUserRecord | InactiveUserRecord>(
   users: T[],
   notificationType: 'paid_user' | 'new_user' | 'inactive_user',
   generateReferenceId: (user: T) => string,
@@ -130,7 +134,7 @@ export const processNotificationsWithIdempotency = async <T extends { id: string
             result.userId, 
             notificationType,
             result.referenceId,
-            result.channel,
+            result.channel as NotificationChannel,
             result,
             { 
               notificationId: result.notificationId,
@@ -185,9 +189,7 @@ export const processPaidUserCheck = async (job: Job<PaidUserCheckJobData>): Prom
     const results = await processNotificationsWithIdempotency(
       paidUsers,
       'paid_user',
-      (user) => user.license_id 
-        ? `paid_license_${user.license_id}` 
-        : `paid_${user.id}_${user.paid_at.getTime()}`,
+      (user) => `paid_license_${user.license_id}`,
       '📨'
     )
     
@@ -228,7 +230,7 @@ export const processInactiveUserCheck = async (job: Job<InactiveUserCheckJobData
     const results = await processNotificationsWithIdempotency(
       inactiveUsers,
       'inactive_user',
-      (user) => `inactive_${user.id}_${user.last_activity.getTime()}_${user.days_inactive}d`,
+      (user) => `inactive_${user.id}`,
       '😴'
     )
     
