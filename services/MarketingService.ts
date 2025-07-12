@@ -17,6 +17,11 @@ export interface TopCreatingDay {
   total_hours: number
 }
 
+export interface CumulativeWeeklyHours {
+  week_start: string
+  cumulative_hours: number
+}
+
 const getWeeklyActivityData = async (): Promise<WeeklyActivity[]> => {
   try {
     const weeklyData = await getCachedOrFetch(
@@ -84,10 +89,24 @@ const getTopCreatingDays = async (limit: number = 10): Promise<TopCreatingDay[]>
   }
 }
 
+const getCumulativeWeeklyHours = async (): Promise<CumulativeWeeklyHours[]> => {
+  try {
+    const cumulativeData = await getCachedOrFetch(
+      MARKETING_CACHE_KEYS.CUMULATIVE_WEEKLY_HOURS,
+      () => ActivityDayRollupRepo.getCumulativeWeeklyHours()
+    )
+    return cumulativeData
+  } catch (error) {
+    console.error('Service error fetching cumulative weekly hours:', error)
+    throw new ApiError('Failed to fetch cumulative weekly hours', 500)
+  }
+}
+
 export const MarketingService = {
   getWeeklyActivityData,
   getTotalHoursCreating,
   getAverageWeeklyHours,
   getDailyActivityData,
-  getTopCreatingDays
+  getTopCreatingDays,
+  getCumulativeWeeklyHours
 } 
