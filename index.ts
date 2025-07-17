@@ -8,6 +8,7 @@ import { JobQueueController } from './controllers/JobQueueController'
 import { SlackController } from './controllers/SlackController'
 import { GeoLocationService } from './services/GeoLocationService'
 import { jobQueueService } from './services/JobQueueService'
+import { slackCleanupQueueService } from './services/SlackCleanupQueueService'
 import { ApiError } from './middleware/errorHandler'
 
 const app = express()
@@ -127,7 +128,10 @@ process.on('SIGINT', async () => {
 
 async function gracefulShutdown() {
   try {
-    await jobQueueService.shutdown()
+    await Promise.all([
+      jobQueueService.shutdown(),
+      slackCleanupQueueService.shutdown()
+    ])
     console.log('✅ Graceful shutdown completed')
     process.exit(0)
   } catch (error) {
@@ -158,6 +162,15 @@ export const startServer = async (port: number = PORT) => {
       console.warn('⚠️  Job Queue Service initialization failed:', error)
       console.warn('   Scheduled user monitoring jobs will not be available.')
       console.warn('   To enable job queue, ensure Redis is running and properly configured.')
+    }
+
+    // Initialize Slack Cleanup Queue Service (will fail gracefully if Redis not available)
+    try {
+      await slackCleanupQueueService.initialize()
+    } catch (error) {
+      console.warn('⚠️  Slack Cleanup Queue Service initialization failed:', error)
+      console.warn('   Slack focus session cleanup jobs will not be available.')
+      console.warn('   To enable Slack cleanup, ensure Redis is running and properly configured.')
     }
     
     console.log('✅ Services initialized successfully')

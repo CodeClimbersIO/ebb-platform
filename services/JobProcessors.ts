@@ -1,10 +1,12 @@
 import { Job } from 'bullmq'
 import { UserMonitoringRepo } from '../repos/UserMonitoring'
+import { SlackService } from './SlackService.js'
 import type { 
   NewUserCheckJobData, 
   PaidUserCheckJobData, 
   InactiveUserCheckJobData,
   TestJobData,
+  SlackCleanupJobData,
   JobResult 
 } from '../types/jobs'
 
@@ -118,6 +120,32 @@ export const processTestJob = async (job: Job<TestJobData>): Promise<JobResult> 
 }
 
 /**
+ * Process Slack cleanup job for expired focus sessions
+ */
+export const processSlackCleanup = async (job: Job<SlackCleanupJobData>): Promise<JobResult> => {
+  try {
+    const { sessionId, userId } = job.data
+    console.log(`🧹 Processing Slack cleanup job for session ${sessionId}...`)
+    
+    await SlackService.cleanupExpiredFocusSession(sessionId, userId)
+    
+    return {
+      success: true,
+      message: `Slack cleanup completed for session ${sessionId}`,
+      data: { sessionId, userId },
+      processedAt: new Date()
+    }
+  } catch (error) {
+    console.error('❌ Error processing Slack cleanup job:', error)
+    return {
+      success: false,
+      message: `Failed to cleanup Slack session: ${error}`,
+      processedAt: new Date()
+    }
+  }
+}
+
+/**
  * Job processor registry
  */
 export const jobProcessors = {
@@ -125,4 +153,6 @@ export const jobProcessors = {
   'check-paid-users': processPaidUserCheck,
   'check-inactive-users': processInactiveUserCheck,
   'test-job': processTestJob,
+  'slack-cleanup-dnd': processSlackCleanup,
+  'slack-cleanup-status': processSlackCleanup,
 } 

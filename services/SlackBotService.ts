@@ -83,15 +83,13 @@ export class SlackBotService {
       return // User not in focus session
     }
 
-    // Check if message contains urgent keywords
+    // Check if message contains urgent keywords (enhanced with case-insensitive partial matching)
     const messageText = event.text?.toLowerCase() || ''
     const urgentKeywords = userConnection.urgent_keywords ? 
       JSON.parse(userConnection.urgent_keywords) : 
       ['urgent', 'emergency', 'asap', 'important']
 
-    const isUrgent = urgentKeywords.some((keyword: string) => 
-      messageText.includes(keyword.toLowerCase())
-    )
+    const isUrgent = this.checkForUrgentKeywords(messageText, urgentKeywords)
 
     if (isUrgent) {
       await this.sendUrgentMessageNotification(workspace, event, userConnection)
@@ -100,6 +98,64 @@ export class SlackBotService {
 
     // Send auto-reply
     await this.sendAutoReply(workspace, event, userConnection)
+  }
+
+  private static checkForUrgentKeywords(messageText: string, urgentKeywords: string[]): boolean {
+    // Enhanced urgent keyword matching with:
+    // 1. Case-insensitive matching
+    // 2. Partial word matching
+    // 3. Support for word boundaries to avoid false positives
+    // 4. Flexible matching for common variations
+    
+    const normalizedMessage = messageText.toLowerCase().trim()
+    
+    return urgentKeywords.some((keyword: string) => {
+      const normalizedKeyword = keyword.toLowerCase().trim()
+      
+      // If keyword is empty, skip
+      if (!normalizedKeyword) return false
+      
+      // Exact word match (with word boundaries)
+      const wordBoundaryRegex = new RegExp(`\\b${this.escapeRegex(normalizedKeyword)}\\b`, 'i')
+      if (wordBoundaryRegex.test(normalizedMessage)) {
+        return true
+      }
+      
+      // Partial match for compound words or variations
+      // e.g., "urgent" matches "urgently", "urgency"
+      if (normalizedMessage.includes(normalizedKeyword)) {
+        return true
+      }
+      
+      // Check for common variations and abbreviations
+      const variations = this.getKeywordVariations(normalizedKeyword)
+      return variations.some(variation => {
+        const variationRegex = new RegExp(`\\b${this.escapeRegex(variation)}\\b`, 'i')
+        return variationRegex.test(normalizedMessage) || normalizedMessage.includes(variation)
+      })
+    })
+  }
+
+  private static getKeywordVariations(keyword: string): string[] {
+    const variations: { [key: string]: string[] } = {
+      'urgent': ['urgently', 'urgency', 'urgent!', 'urgent?'],
+      'emergency': ['emergencies', 'emergency!', 'emergent'],
+      'asap': ['a.s.a.p', 'a s a p', 'as soon as possible'],
+      'important': ['importantly', 'importance', 'important!', 'important?'],
+      'critical': ['critically', 'crit', 'critical!'],
+      'immediate': ['immediately', 'immed', 'immediate!'],
+      'priority': ['priorities', 'high priority', 'top priority', 'prio'],
+      'help': ['help!', 'help?', 'need help', 'can you help'],
+      'quick': ['quickly', 'quick!', 'quick?'],
+      'now': ['right now', 'now!', 'now?'],
+      'rush': ['rushing', 'rushed', 'rush!']
+    }
+    
+    return variations[keyword] || []
+  }
+
+  private static escapeRegex(string: string): string {
+    return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
   }
 
   private static async sendAutoReply(workspace: any, event: SlackEvent, userConnection: any): Promise<void> {
@@ -205,21 +261,37 @@ export class SlackBotService {
   }
 
   private static async checkIfUserInFocusSession(userId: string): Promise<boolean> {
-    // This would integrate with your existing focus session tracking
-    // For now, we'll check the user's online status or implement a simple check
-    
-    // You might want to:
-    // 1. Check if user has an active focus session in your system
-    // 2. Check if user's Slack status indicates they're focusing
-    // 3. Check if it's within their configured focus hours
-    
-    // Placeholder implementation - you should replace this with actual focus session logic
-    const userProfile = await db('user_profile')
-      .where({ id: userId })
+    // Check if user has an active focus session using our focus session tracking
+    const activeFocusSession = await db('slack_focus_sessions')
+      .where({ 
+        user_id: userId, 
+        is_active: true 
+      })
       .first()
 
-    // For now, assume user is in focus session if their online_status indicates focusing
-    return userProfile?.online_status === 'focusing' || userProfile?.online_status === 'busy'
+    if (!activeFocusSession) {
+      return false
+    }
+
+    // Check if session has expired
+    if (activeFocusSession.duration_minutes) {
+      const sessionStart = new Date(activeFocusSession.start_time).getTime()
+      const durationMs = activeFocusSession.duration_minutes * 60 * 1000
+      const now = Date.now()
+      
+      if (now > sessionStart + durationMs) {
+        // Session has expired, mark as inactive
+        await db('slack_focus_sessions')
+          .where({ id: activeFocusSession.id })
+          .update({ 
+            is_active: false, 
+            end_time: new Date() 
+          })
+        return false
+      }
+    }
+
+    return true
   }
 
   static async getUserInfo(botToken: string, userId: string): Promise<any> {

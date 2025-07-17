@@ -93,14 +93,15 @@ const startFocusSession = async (req: Request, res: Response): Promise<void> => 
   const focusSessionId = sessionId || `focus-session-${Date.now()}`
   const duration = durationMinutes || 25 // Default 25 minutes
 
-  await SlackService.startFocusSession(req.user.id, focusSessionId, duration)
+  const result = await SlackService.startFocusSession(req.user.id, focusSessionId, duration)
   
   res.json({
     success: true,
-    message: 'Focus session started - Slack status updated and DND enabled',
+    message: `Focus session started - ${result.workspaces.length} workspace(s) processed`,
     data: {
       sessionId: focusSessionId,
-      durationMinutes: duration
+      durationMinutes: duration,
+      ...result
     }
   })
 }
@@ -111,16 +112,29 @@ const endFocusSession = async (req: Request, res: Response): Promise<void> => {
   }
 
   const { sessionId } = req.body
-  const focusSessionId = sessionId || 'focus-session'
 
-  await SlackService.endFocusSession(req.user.id, focusSessionId)
+  const result = await SlackService.endFocusSession(req.user.id, sessionId)
   
   res.json({
     success: true,
-    message: 'Focus session ended - Slack status cleared and DND disabled',
+    message: `Focus session ended - ${result.workspaces.length} workspace(s) processed`,
     data: {
-      sessionId: focusSessionId
+      sessionId,
+      ...result
     }
+  })
+}
+
+const getFocusSessionStatus = async (req: Request, res: Response): Promise<void> => {
+  if (!req.user) {
+    throw new ApiError('User authentication required', 401)
+  }
+
+  const status = await SlackService.getFocusSessionStatus(req.user.id)
+  
+  res.json({
+    success: true,
+    data: status
   })
 }
 
@@ -135,7 +149,7 @@ const setSlackStatus = async (req: Request, res: Response): Promise<void> => {
     throw new ApiError('Status text is required', 400)
   }
 
-  await SlackService.setUserStatus(
+  const result = await SlackService.setUserStatus(
     req.user.id, 
     statusText, 
     statusEmoji || ':speech_balloon:',
@@ -144,11 +158,12 @@ const setSlackStatus = async (req: Request, res: Response): Promise<void> => {
   
   res.json({
     success: true,
-    message: 'Slack status updated successfully',
+    message: `Slack status updated - ${result.workspaces.length} workspace(s) processed`,
     data: {
       statusText,
       statusEmoji: statusEmoji || ':speech_balloon:',
-      expiration
+      expiration,
+      ...result
     }
   })
 }
@@ -158,11 +173,12 @@ const clearSlackStatus = async (req: Request, res: Response): Promise<void> => {
     throw new ApiError('User authentication required', 401)
   }
 
-  await SlackService.clearUserStatus(req.user.id)
+  const result = await SlackService.clearUserStatus(req.user.id)
   
   res.json({
     success: true,
-    message: 'Slack status cleared successfully'
+    message: `Slack status cleared - ${result.workspaces.length} workspace(s) processed`,
+    data: result
   })
 }
 
@@ -175,20 +191,27 @@ const controlSlackDnd = async (req: Request, res: Response): Promise<void> => {
 
   if (action === 'enable') {
     const duration = durationMinutes || 30
-    await SlackService.enableDnd(req.user.id, duration)
+    const result = await SlackService.enableDnd(req.user.id, duration)
     
     res.json({
       success: true,
-      message: `DND enabled for ${duration} minutes`,
-      data: { action: 'enable', durationMinutes: duration }
+      message: `DND ${action} - ${result.workspaces.length} workspace(s) processed`,
+      data: {
+        action: 'enable',
+        durationMinutes: duration,
+        ...result
+      }
     })
   } else if (action === 'disable') {
-    await SlackService.disableDnd(req.user.id)
+    const result = await SlackService.disableDnd(req.user.id)
     
     res.json({
       success: true,
-      message: 'DND disabled',
-      data: { action: 'disable' }
+      message: `DND ${action} - ${result.workspaces.length} workspace(s) processed`,
+      data: {
+        action: 'disable',
+        ...result
+      }
     })
   } else {
     throw new ApiError('Action must be "enable" or "disable"', 400)
@@ -255,6 +278,7 @@ router.put('/preferences', AuthMiddleware.authenticateToken, asyncHandler(update
 // Focus session integration routes
 router.post('/focus-session/start', AuthMiddleware.authenticateToken, asyncHandler(startFocusSession))
 router.post('/focus-session/end', AuthMiddleware.authenticateToken, asyncHandler(endFocusSession))
+router.get('/focus-session/status', AuthMiddleware.authenticateToken, asyncHandler(getFocusSessionStatus))
 
 // Manual Slack control routes
 router.post('/status/set', AuthMiddleware.authenticateToken, asyncHandler(setSlackStatus))

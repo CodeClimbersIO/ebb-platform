@@ -16,6 +16,11 @@ export interface TestJobData {
   // No specific data needed for this test job
 }
 
+export interface SlackCleanupJobData {
+  sessionId: string
+  userId: string
+}
+
 export interface UserMetrics {
   newUsers: number
   paidUsers: number
@@ -54,6 +59,7 @@ export interface JobResult {
 // Job queue names
 export const JOB_QUEUES = {
   USER_MONITORING: 'user-monitoring',
+  SLACK_CLEANUP: 'slack-cleanup',
 } as const
 
 // Job types
@@ -62,6 +68,8 @@ export const JOB_TYPES = {
   CHECK_PAID_USERS: 'check-paid-users', 
   CHECK_INACTIVE_USERS: 'check-inactive-users',
   TEST_JOB: 'test-job',
+  SLACK_CLEANUP_DND: 'slack-cleanup-dnd',
+  SLACK_CLEANUP_STATUS: 'slack-cleanup-status',
 } as const
 
 // Job priorities
