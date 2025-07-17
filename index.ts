@@ -5,6 +5,7 @@ import { FriendsController } from './controllers/FriendsController'
 import { RollupController } from './controllers/RollupController'
 import { MarketingController } from './controllers/MarketingController'
 import { JobQueueController } from './controllers/JobQueueController'
+import { SlackController } from './controllers/SlackController'
 import { GeoLocationService } from './services/GeoLocationService'
 import { jobQueueService } from './services/JobQueueService'
 import { ApiError } from './middleware/errorHandler'
@@ -44,6 +45,7 @@ app.use('/api/geolocation', GeoLocationController.router)
 app.use('/api/friends', FriendsController.router)
 app.use('/api/rollup', RollupController.router)
 app.use('/api/jobs', JobQueueController.router)
+app.use('/api/slack', SlackController.router)
 
 // Public API Routes (no authentication required)
 app.use('/api/marketing', MarketingController.router)
@@ -169,8 +171,9 @@ export const startServer = async (port: number = PORT) => {
       console.log(`🏭 Rollup API (auth required): http://localhost:${port}/api/rollup`)
       console.log(`📈 Marketing API (public): http://localhost:${port}/api/marketing`)
       console.log(`⚙️  Job Queue API (auth required): http://localhost:${port}/api/jobs`)
+      console.log(`💬 Slack API (auth required): http://localhost:${port}/api/slack`)
       console.log(`⚙️  Job Queue: User monitoring jobs scheduled (requires Redis)`)
-      console.log('🔐 Authentication: Supabase JWT required for /api routes (except marketing)')
+      console.log('🔐 Authentication: Supabase JWT required for /api routes (except marketing and slack/events)')
     })
   } catch (error) {
     console.error('❌ Failed to start server:', error)
