@@ -1,6 +1,6 @@
 import { Queue } from 'bullmq'
 import { redisConfig } from '../config/redis.js'
-import { JOB_QUEUES, JOB_PRIORITIES } from '../types/jobs.js'
+import { JOB_PRIORITIES } from '../types/jobs.js'
 
 interface AddJobOptions {
   queue: string
@@ -12,61 +12,62 @@ interface AddJobOptions {
   jobId?: string
 }
 
-class JobServiceClass {
-  private queues: Map<string, Queue> = new Map()
+const queues: Map<string, Queue> = new Map()
 
-  private getQueue(queueName: string): Queue {
-    if (!this.queues.has(queueName)) {
-      const queue = new Queue(queueName, {
-        connection: redisConfig,
-        defaultJobOptions: {
-          removeOnComplete: 50,
-          removeOnFail: 100,
-          attempts: 3,
-          backoff: {
-            type: 'exponential',
-            delay: 2000,
-          },
+const getQueue = (queueName: string): Queue => {
+  if (!queues.has(queueName)) {
+    const queue = new Queue(queueName, {
+      connection: redisConfig,
+      defaultJobOptions: {
+        removeOnComplete: 50,
+        removeOnFail: 100,
+        attempts: 3,
+        backoff: {
+          type: 'exponential',
+          delay: 2000,
         },
-      })
-      this.queues.set(queueName, queue)
-    }
-    return this.queues.get(queueName)!
+      },
+    })
+    queues.set(queueName, queue)
   }
-
-  async addJob(options: AddJobOptions) {
-    const { queue, jobType, data, delay, priority, repeat, jobId } = options
-    
-    const queueInstance = this.getQueue(queue)
-    
-    const jobOptions: any = {
-      priority: priority || JOB_PRIORITIES.NORMAL,
-    }
-
-    if (delay) {
-      jobOptions.delay = delay
-    }
-
-    if (repeat) {
-      jobOptions.repeat = repeat
-    }
-
-    if (jobId) {
-      jobOptions.jobId = jobId
-    }
-
-    return queueInstance.add(jobType, data, jobOptions)
-  }
-
-  async shutdown() {
-    console.log('🛑 Shutting down JobService...')
-    
-    const promises = Array.from(this.queues.values()).map(queue => queue.close())
-    await Promise.all(promises)
-    
-    this.queues.clear()
-    console.log('✅ JobService shut down successfully')
-  }
+  return queues.get(queueName)!
 }
 
-export const JobService = new JobServiceClass()
+const addJob = async (options: AddJobOptions) => {
+  const { queue, jobType, data, delay, priority, repeat, jobId } = options
+  
+  const queueInstance = getQueue(queue)
+  
+  const jobOptions: any = {
+    priority: priority || JOB_PRIORITIES.NORMAL,
+  }
+
+  if (delay) {
+    jobOptions.delay = delay
+  }
+
+  if (repeat) {
+    jobOptions.repeat = repeat
+  }
+
+  if (jobId) {
+    jobOptions.jobId = jobId
+  }
+
+  return queueInstance.add(jobType, data, jobOptions)
+}
+
+const shutdown = async () => {
+  console.log('🛑 Shutting down JobService...')
+  
+  const promises = Array.from(queues.values()).map(queue => queue.close())
+  await Promise.all(promises)
+  
+  queues.clear()
+  console.log('✅ JobService shut down successfully')
+}
+
+export const JobService = {
+  addJob,
+  shutdown
+}
