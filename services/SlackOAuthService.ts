@@ -1,5 +1,5 @@
 import crypto from 'crypto'
-import { db } from '../config/database.js'
+import { SlackRepo } from '../repos/Slack.js'
 import { ApiError } from '../middleware/errorHandler.js'
 import { EbbEncryption } from '../utils/encryption.js'
 
@@ -64,7 +64,7 @@ const generateAuthUrl = async (userId: string): Promise<string> => {
   const stateToken = crypto.randomBytes(16).toString('hex')
   
   // Store the user ID with the state token temporarily (expires in 10 minutes)
-  await db('slack_oauth_states').insert({
+  await SlackRepo.createOAuthState({
     state_token: stateToken,
     user_id: userId,
     expires_at: new Date(Date.now() + 10 * 60 * 1000) // 10 minutes
@@ -87,10 +87,7 @@ const exchangeCodeForTokens = async (code: string, state: string): Promise<{ con
   }
 
   // Retrieve and validate the state token
-  const stateRecord = await db('slack_oauth_states')
-    .where({ state_token: state })
-    .where('expires_at', '>', new Date())
-    .first()
+  const stateRecord = await SlackRepo.getOAuthState(state)
 
   if (!stateRecord) {
     throw new ApiError('Invalid or expired OAuth state', 400)
@@ -99,7 +96,7 @@ const exchangeCodeForTokens = async (code: string, state: string): Promise<{ con
   const userId = stateRecord.user_id
 
   // Clean up the used state token
-  await db('slack_oauth_states').where({ state_token: state }).del()
+  await SlackRepo.deleteOAuthState(state)
 
   try {
     const response = await fetch('https://slack.com/api/oauth.v2.access', {
@@ -126,7 +123,7 @@ const exchangeCodeForTokens = async (code: string, state: string): Promise<{ con
     }
 
     // Store or update workspace
-    const workspace = await upsertWorkspace({
+    const workspace = await SlackRepo.upsertWorkspace({
       team_id: data.team.id,
       team_name: data.team.name,
       team_domain: data.team.domain,
@@ -137,7 +134,7 @@ const exchangeCodeForTokens = async (code: string, state: string): Promise<{ con
     })
 
     // Store user connection
-    await upsertUserConnection({
+    await SlackRepo.upsertUserConnection({
       user_id: userId,
       workspace_id: workspace.id,
       slack_user_id: data.authed_user.id,
@@ -146,7 +143,7 @@ const exchangeCodeForTokens = async (code: string, state: string): Promise<{ con
     })
 
     // Create default preferences if they don't exist
-    await ensureUserPreferences(userId)
+    await SlackRepo.ensureUserPreferences(userId)
 
     return {
       connected: true,
@@ -159,20 +156,12 @@ const exchangeCodeForTokens = async (code: string, state: string): Promise<{ con
 }
 
 const disconnectUser = async (userId: string): Promise<void> => {
-  await db('slack_user_connections')
-    .where({ user_id: userId })
-    .update({ is_active: false })
+  await SlackRepo.disconnectUserConnections(userId)
 }
 
 const getUserSlackStatus = async (userId: string): Promise<{ connected: boolean, workspaces: any[], preferences: any }> => {
-  const connections = await db('slack_user_connections as suc')
-    .join('slack_workspaces as sw', 'suc.workspace_id', 'sw.id')
-    .where({ 'suc.user_id': userId, 'suc.is_active': true })
-    .select('sw.team_name', 'sw.team_domain', 'suc.created_at')
-
-  const preferences = await db('slack_preferences')
-    .where({ user_id: userId })
-    .first()
+  const connections = await SlackRepo.getUserSlackConnections(userId)
+  const preferences = await SlackRepo.getUserPreferences(userId)
 
   return {
     connected: connections.length > 0,
@@ -182,69 +171,9 @@ const getUserSlackStatus = async (userId: string): Promise<{ connected: boolean,
 }
 
 const updateUserPreferences = async (userId: string, updates: SlackPreferences): Promise<any> => {
-  const existing = await db('slack_preferences').where({ user_id: userId }).first()
-  
-  if (existing) {
-    const [updated] = await db('slack_preferences')
-      .where({ user_id: userId })
-      .update({
-        ...updates,
-        urgent_keywords: updates.urgent_keywords ? JSON.stringify(updates.urgent_keywords) : undefined,
-        updated_at: new Date()
-      })
-      .returning('*')
-    return updated
-  } else {
-    const [created] = await db('slack_preferences')
-      .insert({
-        user_id: userId,
-        ...updates,
-        urgent_keywords: updates.urgent_keywords ? JSON.stringify(updates.urgent_keywords) : undefined
-      })
-      .returning('*')
-    return created
-  }
+  return await SlackRepo.updateUserPreferences(userId, updates)
 }
 
-const upsertWorkspace = async (workspace: any): Promise<any> => {
-  const existing = await db('slack_workspaces').where({ team_id: workspace.team_id }).first()
-  
-  if (existing) {
-    const [updated] = await db('slack_workspaces')
-      .where({ team_id: workspace.team_id })
-      .update({ ...workspace, updated_at: new Date() })
-      .returning('*')
-    return updated
-  } else {
-    const [created] = await db('slack_workspaces').insert(workspace).returning('*')
-    return created
-  }
-}
-
-const upsertUserConnection = async (connection: any): Promise<any> => {
-  const existing = await db('slack_user_connections')
-    .where({ user_id: connection.user_id, workspace_id: connection.workspace_id })
-    .first()
-  
-  if (existing) {
-    const [updated] = await db('slack_user_connections')
-      .where({ user_id: connection.user_id, workspace_id: connection.workspace_id })
-      .update({ ...connection, is_active: true, updated_at: new Date() })
-      .returning('*')
-    return updated
-  } else {
-    const [created] = await db('slack_user_connections').insert(connection).returning('*')
-    return created
-  }
-}
-
-const ensureUserPreferences = async (userId: string): Promise<void> => {
-  const existing = await db('slack_preferences').where({ user_id: userId }).first()
-  
-  if (!existing) {
-    await db('slack_preferences').insert({ user_id: userId })
-  }
-}
 
 const encrypt = (text: string): string => {
   return ENCRYPTION.encrypt(text)

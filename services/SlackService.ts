@@ -1,4 +1,4 @@
-import { db } from '../config/database.js'
+import { SlackRepo } from '../repos/Slack.js'
 import { SlackOAuthService } from './SlackOAuthService.js'
 import { ApiError } from '../middleware/errorHandler.js'
 import { mapSlackError, shouldRetryError, getRetryDelay, type SlackErrorDetails } from '../utils/slackErrorMapper.js'
@@ -45,7 +45,7 @@ interface MultiWorkspaceResponse {
 }
 
 const setUserStatus = async (userId: string, statusText: string, statusEmoji: string, expiration?: number): Promise<MultiWorkspaceResponse> => {
-  const preferences = await getUserPreferences(userId)
+  const preferences = await SlackRepo.getUserPreferences(userId)
   
   if (!preferences?.enabled) {
     return {
@@ -54,7 +54,7 @@ const setUserStatus = async (userId: string, statusText: string, statusEmoji: st
     }
   }
 
-  const connections = await getAllActiveUserConnections(userId)
+  const connections = await SlackRepo.getAllActiveUserConnections(userId)
   
   if (connections.length === 0) {
     throw new ApiError('No active Slack connections found', 404)
@@ -99,10 +99,15 @@ const setUserStatus = async (userId: string, statusText: string, statusEmoji: st
       
       workspaceResult.status_updated = true
 
-      await logActivity(userId, 'status_set', connection.workspace_id, {
-        status_text: statusText,
-        status_emoji: statusEmoji,
-        expiration
+      await SlackRepo.createSessionActivity({
+        user_id: userId,
+        activity_type: 'status_set',
+        slack_workspace_id: connection.workspace_id,
+        details: JSON.stringify({
+          status_text: statusText,
+          status_emoji: statusEmoji,
+          expiration
+        })
       })
 
     } catch (error) {
@@ -110,14 +115,14 @@ const setUserStatus = async (userId: string, statusText: string, statusEmoji: st
       const slackError = error instanceof Error ? error.message : 'Unknown error'
       workspaceResult.error = mapSlackError(slackError)
 
-      await logActivity(
-        userId, 
-        'error', 
-        connection.workspace_id, 
-        { action: 'set_status', status_text: statusText, status_emoji: statusEmoji }, 
-        false, 
-        slackError
-      )
+      await SlackRepo.createSessionActivity({
+        user_id: userId,
+        activity_type: 'error',
+        slack_workspace_id: connection.workspace_id,
+        details: JSON.stringify({ action: 'set_status', status_text: statusText, status_emoji: statusEmoji }),
+        success: false,
+        error_message: slackError
+      })
     }
 
     workspaceResults.push(workspaceResult)
@@ -132,7 +137,7 @@ const setUserStatus = async (userId: string, statusText: string, statusEmoji: st
 }
 
 const clearUserStatus = async (userId: string): Promise<MultiWorkspaceResponse> => {
-  const preferences = await getUserPreferences(userId)
+  const preferences = await SlackRepo.getUserPreferences(userId)
   
   if (!preferences?.enabled) {
     return {
@@ -141,7 +146,7 @@ const clearUserStatus = async (userId: string): Promise<MultiWorkspaceResponse> 
     }
   }
 
-  const connections = await getAllActiveUserConnections(userId)
+  const connections = await SlackRepo.getAllActiveUserConnections(userId)
   
   if (connections.length === 0) {
     throw new ApiError('No active Slack connections found', 404)
@@ -186,21 +191,25 @@ const clearUserStatus = async (userId: string): Promise<MultiWorkspaceResponse> 
       
       workspaceResult.status_updated = true
 
-      await logActivity(userId, 'status_cleared', connection.workspace_id)
+      await SlackRepo.createSessionActivity({
+        user_id: userId,
+        activity_type: 'status_cleared',
+        slack_workspace_id: connection.workspace_id
+      })
 
     } catch (error) {
       workspaceResult.success = false
       const slackError = error instanceof Error ? error.message : 'Unknown error'
       workspaceResult.error = mapSlackError(slackError)
 
-      await logActivity(
-        userId, 
-        'error', 
-        connection.workspace_id, 
-        { action: 'clear_status' }, 
-        false, 
-        slackError
-      )
+      await SlackRepo.createSessionActivity({
+        user_id: userId,
+        activity_type: 'error',
+        slack_workspace_id: connection.workspace_id,
+        details: JSON.stringify({ action: 'clear_status' }),
+        success: false,
+        error_message: slackError
+      })
     }
 
     workspaceResults.push(workspaceResult)
@@ -215,7 +224,7 @@ const clearUserStatus = async (userId: string): Promise<MultiWorkspaceResponse> 
 }
 
 const enableDnd = async (userId: string, durationMinutes: number): Promise<MultiWorkspaceResponse> => {
-  const preferences = await getUserPreferences(userId)
+  const preferences = await SlackRepo.getUserPreferences(userId)
   
   if (!preferences?.enabled) {
     return {
@@ -224,7 +233,7 @@ const enableDnd = async (userId: string, durationMinutes: number): Promise<Multi
     }
   }
 
-  const connections = await getAllActiveUserConnections(userId)
+  const connections = await SlackRepo.getAllActiveUserConnections(userId)
   
   if (connections.length === 0) {
     throw new ApiError('No active Slack connections found', 404)
@@ -265,8 +274,13 @@ const enableDnd = async (userId: string, durationMinutes: number): Promise<Multi
       
       workspaceResult.dnd_enabled = true
 
-      await logActivity(userId, 'dnd_enabled', connection.workspace_id, {
-        duration_minutes: durationMinutes
+      await SlackRepo.createSessionActivity({
+        user_id: userId,
+        activity_type: 'dnd_enabled',
+        slack_workspace_id: connection.workspace_id,
+        details: JSON.stringify({
+          duration_minutes: durationMinutes
+        })
       })
 
     } catch (error) {
@@ -274,14 +288,14 @@ const enableDnd = async (userId: string, durationMinutes: number): Promise<Multi
       const slackError = error instanceof Error ? error.message : 'Unknown error'
       workspaceResult.error = mapSlackError(slackError)
 
-      await logActivity(
-        userId, 
-        'error', 
-        connection.workspace_id, 
-        { action: 'enable_dnd', duration_minutes: durationMinutes }, 
-        false, 
-        slackError
-      )
+      await SlackRepo.createSessionActivity({
+        user_id: userId,
+        activity_type: 'error',
+        slack_workspace_id: connection.workspace_id,
+        details: JSON.stringify({ action: 'enable_dnd', duration_minutes: durationMinutes }),
+        success: false,
+        error_message: slackError
+      })
     }
 
     workspaceResults.push(workspaceResult)
@@ -296,7 +310,7 @@ const enableDnd = async (userId: string, durationMinutes: number): Promise<Multi
 }
 
 const disableDnd = async (userId: string): Promise<MultiWorkspaceResponse> => {
-  const preferences = await getUserPreferences(userId)
+  const preferences = await SlackRepo.getUserPreferences(userId)
   
   if (!preferences?.enabled) {
     return {
@@ -305,7 +319,7 @@ const disableDnd = async (userId: string): Promise<MultiWorkspaceResponse> => {
     }
   }
 
-  const connections = await getAllActiveUserConnections(userId)
+  const connections = await SlackRepo.getAllActiveUserConnections(userId)
   
   if (connections.length === 0) {
     throw new ApiError('No active Slack connections found', 404)
@@ -343,21 +357,25 @@ const disableDnd = async (userId: string): Promise<MultiWorkspaceResponse> => {
       
       workspaceResult.dnd_enabled = true
 
-      await logActivity(userId, 'dnd_disabled', connection.workspace_id)
+      await SlackRepo.createSessionActivity({
+        user_id: userId,
+        activity_type: 'dnd_disabled',
+        slack_workspace_id: connection.workspace_id
+      })
 
     } catch (error) {
       workspaceResult.success = false
       const slackError = error instanceof Error ? error.message : 'Unknown error'
       workspaceResult.error = mapSlackError(slackError)
 
-      await logActivity(
-        userId, 
-        'error', 
-        connection.workspace_id, 
-        { action: 'disable_dnd' }, 
-        false, 
-        slackError
-      )
+      await SlackRepo.createSessionActivity({
+        user_id: userId,
+        activity_type: 'error',
+        slack_workspace_id: connection.workspace_id,
+        details: JSON.stringify({ action: 'disable_dnd' }),
+        success: false,
+        error_message: slackError
+      })
     }
 
     workspaceResults.push(workspaceResult)
@@ -372,7 +390,7 @@ const disableDnd = async (userId: string): Promise<MultiWorkspaceResponse> => {
 }
 
 const getDndInfo = async (userId: string): Promise<any> => {
-  const preferences = await getUserPreferences(userId)
+  const preferences = await SlackRepo.getUserPreferences(userId)
   
   if (!preferences?.enabled) {
     return {
@@ -381,7 +399,7 @@ const getDndInfo = async (userId: string): Promise<any> => {
     }
   }
 
-  const connections = await getAllActiveUserConnections(userId)
+  const connections = await SlackRepo.getAllActiveUserConnections(userId)
   
   if (connections.length === 0) {
     throw new ApiError('No active Slack connections found', 404)
@@ -423,14 +441,14 @@ const getDndInfo = async (userId: string): Promise<any> => {
       const slackError = error instanceof Error ? error.message : 'Unknown error'
       workspaceResult.error = mapSlackError(slackError)
 
-      await logActivity(
-        userId, 
-        'error', 
-        connection.workspace_id, 
-        { action: 'get_dnd_info' }, 
-        false, 
-        slackError
-      )
+      await SlackRepo.createSessionActivity({
+        user_id: userId,
+        activity_type: 'error',
+        slack_workspace_id: connection.workspace_id,
+        details: JSON.stringify({ action: 'get_dnd_info' }),
+        success: false,
+        error_message: slackError
+      })
     }
 
     workspaceResults.push(workspaceResult)
@@ -443,7 +461,7 @@ const getDndInfo = async (userId: string): Promise<any> => {
 }
 
 const startFocusSession = async (userId: string, sessionId?: string, durationMinutes?: number): Promise<MultiWorkspaceResponse> => {
-  const preferences = await getUserPreferences(userId)
+  const preferences = await SlackRepo.getUserPreferences(userId)
   
   if (!preferences?.enabled) {
     return {
@@ -452,7 +470,7 @@ const startFocusSession = async (userId: string, sessionId?: string, durationMin
     }
   }
 
-  const connections = await getAllActiveUserConnections(userId)
+  const connections = await SlackRepo.getAllActiveUserConnections(userId)
   
   if (connections.length === 0) {
     throw new ApiError('No active Slack connections found', 404)
@@ -462,12 +480,12 @@ const startFocusSession = async (userId: string, sessionId?: string, durationMin
   const actualSessionId = sessionId || `focus-session-${Date.now()}`
   const expiration = durationMinutes ? Math.floor(Date.now() / 1000) + (durationMinutes * 60) : undefined
   
-  const [focusSession] = await db('slack_focus_sessions').insert({
+  const focusSession = await SlackRepo.createFocusSession({
     user_id: userId,
     session_id: actualSessionId,
     duration_minutes: durationMinutes,
     is_active: true
-  }).returning('*')
+  })
 
   const workspaceResults: WorkspaceResult[] = []
 
@@ -538,18 +556,28 @@ const startFocusSession = async (userId: string, sessionId?: string, durationMin
 
       // Log successful activities
       if (workspaceResult.status_updated) {
-        await logActivity(userId, 'status_set', connection.workspace_id, {
-          session_id: actualSessionId,
-          status_text: preferences.custom_status_text || 'Focusing with Ebb',
-          status_emoji: preferences.custom_status_emoji || ':brain:',
-          expiration
+        await SlackRepo.createSessionActivity({
+          user_id: userId,
+          activity_type: 'status_set',
+          slack_workspace_id: connection.workspace_id,
+          details: JSON.stringify({
+            session_id: actualSessionId,
+            status_text: preferences.custom_status_text || 'Focusing with Ebb',
+            status_emoji: preferences.custom_status_emoji || ':brain:',
+            expiration
+          })
         })
       }
 
       if (workspaceResult.dnd_enabled) {
-        await logActivity(userId, 'dnd_enabled', connection.workspace_id, {
-          session_id: actualSessionId,
-          duration_minutes: durationMinutes
+        await SlackRepo.createSessionActivity({
+          user_id: userId,
+          activity_type: 'dnd_enabled',
+          slack_workspace_id: connection.workspace_id,
+          details: JSON.stringify({
+            session_id: actualSessionId,
+            duration_minutes: durationMinutes
+          })
         })
       }
 
@@ -559,18 +587,18 @@ const startFocusSession = async (userId: string, sessionId?: string, durationMin
       workspaceResult.error = mapSlackError(slackError)
 
       // Log error
-      await logActivity(
-        userId, 
-        'error', 
-        connection.workspace_id, 
-        { session_id: actualSessionId, action: 'start_focus_session' }, 
-        false, 
-        slackError
-      )
+      await SlackRepo.createSessionActivity({
+        user_id: userId,
+        activity_type: 'error',
+        slack_workspace_id: connection.workspace_id,
+        details: JSON.stringify({ session_id: actualSessionId, action: 'start_focus_session' }),
+        success: false,
+        error_message: slackError
+      })
     }
 
     // Store workspace session state
-    await db('slack_focus_session_workspaces').insert({
+    await SlackRepo.createFocusSessionWorkspace({
       session_id: focusSession.id,
       workspace_id: connection.workspace_id,
       status_updated: workspaceResult.status_updated || false,
@@ -617,7 +645,7 @@ const startFocusSession = async (userId: string, sessionId?: string, durationMin
 }
 
 const endFocusSession = async (userId: string, sessionId?: string): Promise<MultiWorkspaceResponse> => {
-  const preferences = await getUserPreferences(userId)
+  const preferences = await SlackRepo.getUserPreferences(userId)
   
   if (!preferences?.enabled) {
     return {
@@ -627,36 +655,22 @@ const endFocusSession = async (userId: string, sessionId?: string): Promise<Mult
   }
 
   // Find the active focus session to end
-  const actualSessionId = sessionId || await getActiveSessionId(userId)
+  const activeSession = await SlackRepo.getActiveFocusSession(userId)
+  const actualSessionId = sessionId || activeSession?.session_id
   
   if (!actualSessionId) {
     throw new ApiError('No active focus session found', 404)
   }
 
   // Get the focus session record
-  const focusSession = await db('slack_focus_sessions')
-    .where({ user_id: userId, session_id: actualSessionId, is_active: true })
-    .first()
+  const focusSession = await SlackRepo.getFocusSessionById(userId, actualSessionId)
   
   if (!focusSession) {
     throw new ApiError('Focus session not found', 404)
   }
 
   // Get workspace states for this session
-  const sessionWorkspaces = await db('slack_focus_session_workspaces as sfw')
-    .join('slack_workspaces as sw', 'sfw.workspace_id', 'sw.id')
-    .join('slack_user_connections as suc', 'sfw.workspace_id', 'suc.workspace_id')
-    .where({ 
-      'sfw.session_id': focusSession.id,
-      'suc.user_id': userId,
-      'suc.is_active': true
-    })
-    .select(
-      'sfw.*',
-      'sw.team_name',
-      'sw.team_id',
-      'suc.access_token'
-    )
+  const sessionWorkspaces = await SlackRepo.getFocusSessionWorkspaces(focusSession.id, userId)
 
   const workspaceResults: WorkspaceResult[] = []
 
@@ -724,14 +738,24 @@ const endFocusSession = async (userId: string, sessionId?: string): Promise<Mult
 
       // Log successful activities
       if (workspaceResult.status_updated) {
-        await logActivity(userId, 'status_cleared', sessionWorkspace.workspace_id, {
-          session_id: actualSessionId
+        await SlackRepo.createSessionActivity({
+          user_id: userId,
+          activity_type: 'status_cleared',
+          slack_workspace_id: sessionWorkspace.workspace_id,
+          details: JSON.stringify({
+            session_id: actualSessionId
+          })
         })
       }
 
       if (workspaceResult.dnd_enabled) {
-        await logActivity(userId, 'dnd_disabled', sessionWorkspace.workspace_id, {
-          session_id: actualSessionId
+        await SlackRepo.createSessionActivity({
+          user_id: userId,
+          activity_type: 'dnd_disabled',
+          slack_workspace_id: sessionWorkspace.workspace_id,
+          details: JSON.stringify({
+            session_id: actualSessionId
+          })
         })
       }
 
@@ -741,26 +765,24 @@ const endFocusSession = async (userId: string, sessionId?: string): Promise<Mult
       workspaceResult.error = mapSlackError(slackError)
 
       // Log error
-      await logActivity(
-        userId, 
-        'error', 
-        sessionWorkspace.workspace_id, 
-        { session_id: actualSessionId, action: 'end_focus_session' }, 
-        false, 
-        slackError
-      )
+      await SlackRepo.createSessionActivity({
+        user_id: userId,
+        activity_type: 'error',
+        slack_workspace_id: sessionWorkspace.workspace_id,
+        details: JSON.stringify({ session_id: actualSessionId, action: 'end_focus_session' }),
+        success: false,
+        error_message: slackError
+      })
     }
 
     workspaceResults.push(workspaceResult)
   }
 
   // Mark session as ended
-  await db('slack_focus_sessions')
-    .where({ id: focusSession.id })
-    .update({ 
-      is_active: false, 
-      end_time: new Date() 
-    })
+  await SlackRepo.updateFocusSession(focusSession.id, {
+    is_active: false,
+    end_time: new Date()
+  })
 
   const overallSuccess = workspaceResults.length === 0 || workspaceResults.some(w => w.success)
 
@@ -771,16 +793,12 @@ const endFocusSession = async (userId: string, sessionId?: string): Promise<Mult
 }
 
 const getActiveSessionId = async (userId: string): Promise<string | null> => {
-  const session = await db('slack_focus_sessions')
-    .where({ user_id: userId, is_active: true })
-    .orderBy('start_time', 'desc')
-    .first()
-  
+  const session = await SlackRepo.getActiveFocusSession(userId)
   return session?.session_id || null
 }
 
 const getFocusSessionStatus = async (userId: string): Promise<any> => {
-  const preferences = await getUserPreferences(userId)
+  const preferences = await SlackRepo.getUserPreferences(userId)
   
   if (!preferences?.enabled) {
     return {
@@ -789,76 +807,31 @@ const getFocusSessionStatus = async (userId: string): Promise<any> => {
     }
   }
 
-  // Get the active focus session
-  const activeSession = await db('slack_focus_sessions')
-    .where({ user_id: userId, is_active: true })
-    .orderBy('start_time', 'desc')
-    .first()
-
-  if (!activeSession) {
+  const activeSessionData = await SlackRepo.getFocusSessionStatus(userId)
+  
+  if (!activeSessionData) {
     return {
       active_session: null,
       slack_enabled: true
     }
   }
 
-  // Get workspace states for this session
-  const workspaceStates = await db('slack_focus_session_workspaces as sfw')
-    .join('slack_workspaces as sw', 'sfw.workspace_id', 'sw.id')
-    .where({ 'sfw.session_id': activeSession.id })
-    .select(
-      'sw.team_name',
-      'sfw.status_updated',
-      'sfw.dnd_enabled',
-      'sfw.error_message',
-      'sfw.error_type'
-    )
-
-  const workspaces = workspaceStates.map(ws => ({
-    team_name: ws.team_name,
-    status_updated: ws.status_updated,
-    dnd_enabled: ws.dnd_enabled,
-    error: ws.error_message ? {
-      type: ws.error_type,
-      message: ws.error_message
-    } : null
-  }))
-
   return {
-    active_session: {
-      session_id: activeSession.session_id,
-      start_time: activeSession.start_time,
-      duration_minutes: activeSession.duration_minutes,
-      workspaces
-    },
+    active_session: activeSessionData,
     slack_enabled: true
   }
 }
 
 const getActiveUserConnection = async (userId: string): Promise<any> => {
-  return await db('slack_user_connections')
-    .where({ user_id: userId, is_active: true })
-    .first()
+  return await SlackRepo.getActiveUserConnection(userId)
 }
 
 const getAllActiveUserConnections = async (userId: string): Promise<any[]> => {
-  return await db('slack_user_connections as suc')
-    .join('slack_workspaces as sw', 'suc.workspace_id', 'sw.id')
-    .where({ 'suc.user_id': userId, 'suc.is_active': true })
-    .select(
-      'suc.id as connection_id',
-      'suc.access_token',
-      'suc.workspace_id',
-      'sw.team_name',
-      'sw.team_id',
-      'sw.bot_token'
-    )
+  return await SlackRepo.getAllActiveUserConnections(userId)
 }
 
 const getUserPreferences = async (userId: string): Promise<any> => {
-  return await db('slack_preferences')
-    .where({ user_id: userId })
-    .first()
+  return await SlackRepo.getUserPreferences(userId)
 }
 
 const logActivity = async (
@@ -870,11 +843,11 @@ const logActivity = async (
   errorMessage?: string
 ): Promise<void> => {
   try {
-    await db('slack_session_activities').insert({
+    await SlackRepo.createSessionActivity({
       user_id: userId,
       activity_type: activityType,
       slack_workspace_id: workspaceId,
-      details: details ? JSON.stringify(details) : null,
+      details: details ? JSON.stringify(details) : undefined,
       success,
       error_message: errorMessage
     })
@@ -923,9 +896,7 @@ const executeWithRetry = async <T>(
 const cleanupExpiredFocusSession = async (sessionId: string, userId: string): Promise<void> => {
   try {
     // Find the focus session
-    const focusSession = await db('slack_focus_sessions')
-      .where({ user_id: userId, session_id: sessionId, is_active: true })
-      .first()
+    const focusSession = await SlackRepo.getFocusSessionById(userId, sessionId)
     
     if (!focusSession) {
       console.log(`Focus session ${sessionId} not found or already ended`)
@@ -946,23 +917,10 @@ const cleanupExpiredFocusSession = async (sessionId: string, userId: string): Pr
     console.log(`Cleaning up expired focus session ${sessionId} for user ${userId}`)
 
     // Get workspace states for this session
-    const sessionWorkspaces = await db('slack_focus_session_workspaces as sfw')
-      .join('slack_workspaces as sw', 'sfw.workspace_id', 'sw.id')
-      .join('slack_user_connections as suc', 'sfw.workspace_id', 'suc.workspace_id')
-      .where({ 
-        'sfw.session_id': focusSession.id,
-        'suc.user_id': userId,
-        'suc.is_active': true
-      })
-      .select(
-        'sfw.*',
-        'sw.team_name',
-        'sw.team_id',
-        'suc.access_token'
-      )
+    const sessionWorkspaces = await SlackRepo.getFocusSessionWorkspaces(focusSession.id, userId)
 
     // Get user preferences
-    const preferences = await getUserPreferences(userId)
+    const preferences = await SlackRepo.getUserPreferences(userId)
     
     if (!preferences?.enabled) {
       return
@@ -1045,12 +1003,10 @@ const cleanupExpiredFocusSession = async (sessionId: string, userId: string): Pr
     }
 
     // Mark session as ended
-    await db('slack_focus_sessions')
-      .where({ id: focusSession.id })
-      .update({ 
-        is_active: false, 
-        end_time: new Date() 
-      })
+    await SlackRepo.updateFocusSession(focusSession.id, {
+      is_active: false,
+      end_time: new Date()
+    })
 
     console.log(`Successfully cleaned up expired focus session ${sessionId}`)
 

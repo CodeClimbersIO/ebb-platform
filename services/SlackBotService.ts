@@ -1,4 +1,4 @@
-import { db } from '../config/database.js'
+import { SlackRepo } from '../repos/Slack.js'
 import { SlackOAuthService } from './SlackOAuthService.js'
 import { ApiError } from '../middleware/errorHandler.js'
 
@@ -51,9 +51,7 @@ const handleEvent = async (payload: SlackEventPayload): Promise<void> => {
 
 const handleMessage = async (teamId: string, event: SlackEvent): Promise<void> => {
   // Get workspace info
-  const workspace = await db('slack_workspaces')
-    .where({ team_id: teamId })
-    .first()
+  const workspace = await SlackRepo.getWorkspaceByTeamId(teamId)
 
   if (!workspace) {
     console.warn(`Received event from unknown workspace: ${teamId}`)
@@ -61,16 +59,7 @@ const handleMessage = async (teamId: string, event: SlackEvent): Promise<void> =
   }
 
   // Find the user in our system who might be in a focus session
-  const userConnection = await db('slack_user_connections as suc')
-    .join('slack_preferences as sp', 'suc.user_id', 'sp.user_id')
-    .where({
-      'suc.workspace_id': workspace.id,
-      'suc.is_active': true,
-      'sp.enabled': true,
-      'sp.auto_reply_enabled': true
-    })
-    .select('suc.*', 'sp.*')
-    .first()
+  const userConnection = await SlackRepo.getUserConnectionWithPreferences(workspace.id)
 
   if (!userConnection) {
     return // No user with auto-reply enabled
@@ -190,21 +179,26 @@ const sendAutoReply = async (workspace: any, event: SlackEvent, userConnection: 
       throw new Error(`Failed to send auto-reply: ${data.error}`)
     }
 
-    await logActivity(userConnection.user_id, 'auto_reply_sent', workspace.id, {
-      original_message: event.text,
-      original_user: event.user,
-      original_channel: event.channel,
-      response_channel: responseChannel
+    await SlackRepo.createSessionActivity({
+      user_id: userConnection.user_id,
+      activity_type: 'auto_reply_sent',
+      slack_workspace_id: workspace.id,
+      details: JSON.stringify({
+        original_message: event.text,
+        original_user: event.user,
+        original_channel: event.channel,
+        response_channel: responseChannel
+      })
     })
   } catch (error) {
-    await logActivity(
-      userConnection.user_id, 
-      'error', 
-      workspace.id, 
-      { action: 'auto_reply', original_message: event.text }, 
-      false, 
-      error instanceof Error ? error.message : 'Unknown error'
-    )
+    await SlackRepo.createSessionActivity({
+      user_id: userConnection.user_id,
+      activity_type: 'error',
+      slack_workspace_id: workspace.id,
+      details: JSON.stringify({ action: 'auto_reply', original_message: event.text }),
+      success: false,
+      error_message: error instanceof Error ? error.message : 'Unknown error'
+    })
   }
 }
 
@@ -239,34 +233,34 @@ const sendUrgentMessageNotification = async (workspace: any, event: SlackEvent, 
     const data = await response.json() as SlackChatResponse
     
     if (data.ok) {
-      await logActivity(userConnection.user_id, 'auto_reply_sent', workspace.id, {
-        original_message: event.text,
-        original_user: event.user,
-        original_channel: event.channel,
-        response_channel: responseChannel,
-        urgent: true
+      await SlackRepo.createSessionActivity({
+        user_id: userConnection.user_id,
+        activity_type: 'auto_reply_sent',
+        slack_workspace_id: workspace.id,
+        details: JSON.stringify({
+          original_message: event.text,
+          original_user: event.user,
+          original_channel: event.channel,
+          response_channel: responseChannel,
+          urgent: true
+        })
       })
     }
   } catch (error) {
-    await logActivity(
-      userConnection.user_id, 
-      'error', 
-      workspace.id, 
-      { action: 'urgent_reply', original_message: event.text }, 
-      false, 
-      error instanceof Error ? error.message : 'Unknown error'
-    )
+    await SlackRepo.createSessionActivity({
+      user_id: userConnection.user_id,
+      activity_type: 'error',
+      slack_workspace_id: workspace.id,
+      details: JSON.stringify({ action: 'urgent_reply', original_message: event.text }),
+      success: false,
+      error_message: error instanceof Error ? error.message : 'Unknown error'
+    })
   }
 }
 
 const checkIfUserInFocusSession = async (userId: string): Promise<boolean> => {
   // Check if user has an active focus session using our focus session tracking
-  const activeFocusSession = await db('slack_focus_sessions')
-    .where({ 
-      user_id: userId, 
-      is_active: true 
-    })
-    .first()
+  const activeFocusSession = await SlackRepo.getActiveFocusSession(userId)
 
   if (!activeFocusSession) {
     return false
@@ -280,12 +274,7 @@ const checkIfUserInFocusSession = async (userId: string): Promise<boolean> => {
     
     if (now > sessionStart + durationMs) {
       // Session has expired, mark as inactive
-      await db('slack_focus_sessions')
-        .where({ id: activeFocusSession.id })
-        .update({ 
-          is_active: false, 
-          end_time: new Date() 
-        })
+      await SlackRepo.updateExpiredFocusSession(activeFocusSession.id)
       return false
     }
   }
@@ -339,11 +328,11 @@ const logActivity = async (
   errorMessage?: string
 ): Promise<void> => {
   try {
-    await db('slack_session_activities').insert({
+    await SlackRepo.createSessionActivity({
       user_id: userId,
       activity_type: activityType,
       slack_workspace_id: workspaceId,
-      details: details ? JSON.stringify(details) : null,
+      details: details ? JSON.stringify(details) : undefined,
       success,
       error_message: errorMessage
     })
