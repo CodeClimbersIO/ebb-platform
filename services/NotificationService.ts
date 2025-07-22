@@ -24,6 +24,10 @@ const generateReferenceId = (
       const year = now.getFullYear()
       const week = Math.ceil((now.getTime() - new Date(year, 0, 1).getTime()) / (7 * 24 * 60 * 60 * 1000))
       return `weekly_${year}_W${week.toString().padStart(2, '0')}`
+
+    case 'inactive_user':
+      // For inactive users, use their user id
+      return `inactive_${userId}`
     
     case 'new_user':
       // For new users, use their signup timestamp
