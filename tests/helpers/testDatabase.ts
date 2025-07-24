@@ -1,7 +1,7 @@
-import { PostgreSqlContainer, StartedPostgreSqlContainer } from '@testcontainers/postgresql'
+import { newDb, IMemoryDb } from 'pg-mem'
 import knex, { Knex } from 'knex'
 
-let container: StartedPostgreSqlContainer | null = null
+let memoryDb: IMemoryDb | null = null
 let testDb: Knex | null = null
 
 export const startTestDatabase = async (): Promise<Knex> => {
@@ -9,43 +9,26 @@ export const startTestDatabase = async (): Promise<Knex> => {
     return testDb
   }
 
-  console.log('Starting PostgreSQL test container...')
+  console.log('Starting in-memory PostgreSQL...')
   
-  container = await new PostgreSqlContainer('postgres:15')
-    .withDatabase('testdb')
-    .withUsername('testuser')
-    .withPassword('testpass')
-    .withExposedPorts(5432)
-    .start()
+  // Create a new in-memory database
+  memoryDb = newDb()
+  
+  // Enable PostGIS if needed (optional)
+  // memoryDb.public.registerFunction()
+  
+  // Get knex adapter from pg-mem
+  testDb = memoryDb.adapters.createKnex() as Knex
 
-  const connectionConfig = {
-    host: container.getHost(),
-    port: container.getMappedPort(5432),
-    user: container.getUsername(),
-    password: container.getPassword(),
-    database: container.getDatabase(),
-  }
+  // Set environment variables to indicate we're using in-memory DB
+  process.env.DB_HOST = 'localhost'
+  process.env.DB_PORT = '5433'
+  process.env.DB_USER = 'testuser'
+  process.env.DB_PASSWORD = 'testpass'
+  process.env.DB_NAME = 'testdb'
 
-  testDb = knex({
-    client: 'pg',
-    connection: connectionConfig,
-    pool: {
-      min: 1,
-      max: 5
-    },
-    migrations: {
-      tableName: 'knex_migrations'
-    }
-  })
-
-  // Set environment variables for the application to use
-  process.env.DB_HOST = connectionConfig.host
-  process.env.DB_PORT = connectionConfig.port.toString()
-  process.env.DB_USER = connectionConfig.user
-  process.env.DB_PASSWORD = connectionConfig.password
-  process.env.DB_NAME = connectionConfig.database
-
-  console.log(`Test database started on ${connectionConfig.host}:${connectionConfig.port}`)
+  console.log('process.env.DB_HOST', process.env)
+  console.log('In-memory PostgreSQL database ready')
   
   return testDb
 }
@@ -56,10 +39,10 @@ export const stopTestDatabase = async (): Promise<void> => {
     testDb = null
   }
 
-  if (container) {
-    await container.stop()
-    container = null
-    console.log('Test database stopped')
+  if (memoryDb) {
+    // In-memory database is automatically cleaned up
+    memoryDb = null
+    console.log('In-memory PostgreSQL stopped')
   }
 
   // Clean up environment variables
