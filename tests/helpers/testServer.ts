@@ -1,16 +1,19 @@
 import { Server } from 'http'
 import app from '../../index'
+import { startTestDatabase, stopTestDatabase } from './testDatabase'
 
 let server: Server | null = null
 const TEST_PORT = 3002 // Use different port for testing
 
-export const startTestServer = (): Promise<void> => {
-  return new Promise((resolve, reject) => {
-    if (server) {
-      resolve()
-      return
-    }
+export const startTestServer = async (): Promise<void> => {
+  if (server) {
+    return
+  }
 
+  // Start the test database first
+  await startTestDatabase()
+
+  return new Promise((resolve, reject) => {
     server = app.listen(TEST_PORT, (err?: Error) => {
       if (err) {
         reject(err)
@@ -22,16 +25,19 @@ export const startTestServer = (): Promise<void> => {
   })
 }
 
-export const stopTestServer = (): Promise<void> => {
+export const stopTestServer = async (): Promise<void> => {
   return new Promise((resolve) => {
     if (server) {
-      server.close(() => {
+      server.close(async () => {
         server = null
         console.log('Test server stopped')
+        // Stop the test database
+        await stopTestDatabase()
         resolve()
       })
     } else {
-      resolve()
+      // Even if no server, still clean up database
+      stopTestDatabase().then(() => resolve())
     }
   })
 }
