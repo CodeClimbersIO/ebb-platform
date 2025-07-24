@@ -52,6 +52,14 @@ const getTopCreatingDays = async (req: Request, res: Response): Promise<void> =>
   })
 }
 
+const getCumulativeWeeklyHours = async (req: Request, res: Response): Promise<void> => {
+  const cumulativeData = await MarketingService.getCumulativeWeeklyHours()
+  res.json({
+    success: true,
+    data: cumulativeData
+  })
+}
+
 const getCacheStatus = async (req: Request, res: Response): Promise<void> => {
   const stats = cache.getStats()
   const cacheInfo = {
@@ -76,6 +84,7 @@ router.get('/total-hours', asyncHandler(getTotalHoursCreating))
 router.get('/average-weekly-hours', asyncHandler(getAverageWeeklyHours))
 router.get('/daily-activity', asyncHandler(getDailyActivityData))
 router.get('/top-creating-days', asyncHandler(getTopCreatingDays))
+router.get('/cumulative-weekly-hours', asyncHandler(getCumulativeWeeklyHours))
 router.get('/cache-status', asyncHandler(getCacheStatus))
 
 export const MarketingController = {
@@ -85,5 +94,6 @@ export const MarketingController = {
   getAverageWeeklyHours,
   getDailyActivityData,
   getTopCreatingDays,
+  getCumulativeWeeklyHours,
   getCacheStatus
 } 

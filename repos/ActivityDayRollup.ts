@@ -200,5 +200,35 @@ export const ActivityDayRollupRepo = {
       date: row.date,
       total_hours: parseFloat(row.total_hours as string) || 0
     }))
+  },
+
+  async getCumulativeWeeklyHours(): Promise<Array<{ week_start: string; cumulative_hours: number }>> {
+    const result = await db(tableName)
+      .select(
+        db.raw('DATE_TRUNC(\'week\', date) as week_start'),
+        db.raw('SUM(total_duration_minutes) / 60 as total_hours'),
+        db.raw('COUNT(DISTINCT date) as days_count')
+      )
+      .groupBy(db.raw('DATE_TRUNC(\'week\', date)'))
+      .orderByRaw('DATE_TRUNC(\'week\', date) ASC')
+
+    // Filter out weeks with less than 5 days (similar to getWeeklyActivityAggregation)
+    const filteredResult = result.filter((row: any) => {
+      const daysCount = parseInt(row.days_count as string) || 0
+      return daysCount >= 5
+    })
+
+    // Calculate cumulative totals
+    let cumulativeTotal = 0
+    const cumulativeData = filteredResult.map((row: any) => {
+      const weekHours = parseFloat(row.total_hours as string) || 0
+      cumulativeTotal += weekHours
+      return {
+        week_start: row.week_start,
+        cumulative_hours: cumulativeTotal
+      }
+    })
+
+    return cumulativeData
   }
 } 

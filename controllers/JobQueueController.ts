@@ -119,5 +119,5 @@ export const JobQueueController = {
   triggerNewUserCheck,
   triggerPaidUserCheck,
   triggerInactiveUserCheck,
-  triggerTestJob
+  triggerTestJob,
 } 

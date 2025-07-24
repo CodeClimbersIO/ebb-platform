@@ -124,7 +124,8 @@ export const MARKETING_CACHE_KEYS = {
   TOTAL_HOURS: 'marketing:total-hours',
   AVERAGE_WEEKLY_HOURS: 'marketing:average-weekly-hours',
   DAILY_ACTIVITY: 'marketing:daily-activity',
-  TOP_CREATING_DAYS: 'marketing:top-creating-days'
+  TOP_CREATING_DAYS: 'marketing:top-creating-days',
+  CUMULATIVE_WEEKLY_HOURS: 'marketing:cumulative-weekly-hours'
 } as const
 
 // Export cache instance and helper functions
