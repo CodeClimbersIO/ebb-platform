@@ -56,16 +56,23 @@ const BOT_SCOPES = [
 
 const ENCRYPTION = new EbbEncryption(process.env.SLACK_ENCRYPTION_KEY)
 
-const generateAuthUrl = async (userId: string): Promise<string> => {
+const generateAuthUrl = async (userId: string, teamId?: string, redirectType?: 'dev' | 'prod'): Promise<string> => {
   if (!CLIENT_ID) {
     throw new ApiError('Slack client ID not configured', 500)
   }
 
-  const stateToken = crypto.randomBytes(16).toString('hex')
+  const baseStateToken = crypto.randomBytes(16).toString('hex')
   
-  // Store the user ID with the state token temporarily (expires in 10 minutes)
+  // Encode redirect preference in the state token
+  const stateData = {
+    token: baseStateToken,
+    redirectType: redirectType || 'dev'
+  }
+  const encodedState = Buffer.from(JSON.stringify(stateData)).toString('base64')
+  
+  // Store the user ID with the base state token temporarily (expires in 10 minutes)
   await SlackRepo.createOAuthState({
-    state_token: stateToken,
+    state_token: baseStateToken,
     user_id: userId,
     expires_at: new Date(Date.now() + 10 * 60 * 1000) // 10 minutes
   })
@@ -74,20 +81,33 @@ const generateAuthUrl = async (userId: string): Promise<string> => {
     client_id: CLIENT_ID,
     scope: BOT_SCOPES,
     redirect_uri: REDIRECT_URI,
-    state: stateToken,
-    user_scope: USER_SCOPES
+    state: encodedState,
+    user_scope: USER_SCOPES,
+    team: teamId || ''
   })
-
+  console.log('params', params.toString())
   return `https://slack.com/oauth/v2/authorize?${params.toString()}`
 }
 
-const exchangeCodeForTokens = async (code: string, state: string): Promise<{ connected: boolean, workspace: string }> => {
+const exchangeCodeForTokens = async (code: string, state: string): Promise<{ connected: boolean, workspace: string, redirectType: 'dev' | 'prod' }> => {
   if (!CLIENT_ID || !CLIENT_SECRET) {
     throw new ApiError('Slack OAuth credentials not configured', 500)
   }
 
+  // Decode the state to get redirect type and base token
+  let baseStateToken: string
+  let redirectType: 'dev' | 'prod' = 'dev'
+  
+  try {
+    const decodedState = JSON.parse(Buffer.from(state, 'base64').toString())
+    baseStateToken = decodedState.token
+    redirectType = decodedState.redirectType || 'dev'
+  } catch (error) {
+    throw new ApiError('Invalid OAuth state format', 400)
+  }
+
   // Retrieve and validate the state token
-  const stateRecord = await SlackRepo.getOAuthState(state)
+  const stateRecord = await SlackRepo.getOAuthState(baseStateToken)
 
   if (!stateRecord) {
     throw new ApiError('Invalid or expired OAuth state', 400)
@@ -96,7 +116,7 @@ const exchangeCodeForTokens = async (code: string, state: string): Promise<{ con
   const userId = stateRecord.user_id
 
   // Clean up the used state token
-  await SlackRepo.deleteOAuthState(state)
+  await SlackRepo.deleteOAuthState(baseStateToken)
 
   try {
     const response = await fetch('https://slack.com/api/oauth.v2.access', {
@@ -142,12 +162,11 @@ const exchangeCodeForTokens = async (code: string, state: string): Promise<{ con
       scope: data.authed_user.scope!
     })
 
-    // Create default preferences if they don't exist
-    await SlackRepo.ensureUserPreferences(userId)
 
     return {
       connected: true,
-      workspace: data.team.name
+      workspace: data.team.name,
+      redirectType: redirectType
     }
   } catch (error) {
     if (error instanceof ApiError) throw error
@@ -159,6 +178,10 @@ const disconnectUser = async (userId: string): Promise<void> => {
   await SlackRepo.disconnectUserConnections(userId)
 }
 
+const disconnectUserWorkspace = async (userId: string, workspaceId: string): Promise<void> => {
+  await SlackRepo.disconnectUserWorkspace(userId, workspaceId)
+}
+
 const getUserSlackStatus = async (userId: string): Promise<{ connected: boolean, workspaces: any[], preferences: any }> => {
   const connections = await SlackRepo.getUserSlackConnections(userId)
   const preferences = await SlackRepo.getUserPreferences(userId)
@@ -166,7 +189,7 @@ const getUserSlackStatus = async (userId: string): Promise<{ connected: boolean,
   return {
     connected: connections.length > 0,
     workspaces: connections,
-    preferences: preferences || {}
+    preferences
   }
 }
 
@@ -191,6 +214,7 @@ export const SlackOAuthService = {
   generateAuthUrl,
   exchangeCodeForTokens,
   disconnectUser,
+  disconnectUserWorkspace,
   getUserSlackStatus,
   updateUserPreferences,
   getDecryptedToken

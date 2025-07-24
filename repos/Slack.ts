@@ -24,10 +24,10 @@ export interface SlackPreferences {
   auto_status_update: boolean
   auto_dnd: boolean
   auto_reply_enabled: boolean
-  custom_status_text?: string
-  custom_status_emoji?: string
-  auto_reply_message?: string
-  urgent_keywords?: string
+  custom_status_text: string
+  custom_status_emoji: string
+  auto_reply_message: string
+  urgent_keywords: string
 }
 
 export interface SlackFocusSession {
@@ -75,10 +75,43 @@ const getWorkspaceByTeamId = async (teamId: string): Promise<SlackWorkspace | un
     .first()
 }
 
-const getUserPreferences = async (userId: string): Promise<SlackPreferences | undefined> => {
-  return await db('slack_preferences')
+// Default preferences applied at runtime (not in database)
+const DEFAULT_PREFERENCES = {
+  enabled: true,
+  auto_status_update: true,
+  auto_dnd: true,
+  auto_reply_enabled: false,
+  custom_status_text: 'Focusing with Ebb',
+  custom_status_emoji: ':brain:',
+  auto_reply_message: 'I\'m currently in a focus session. I\'ll get back to you soon!',
+  urgent_keywords: '["urgent", "emergency", "asap", "help"]'
+} as const
+
+const getUserPreferences = async (userId: string): Promise<SlackPreferences> => {
+  const userPrefs = await db('slack_preferences')
     .where({ user_id: userId })
     .first()
+
+  // If no preferences exist, return runtime defaults
+  if (!userPrefs) {
+    return {
+      user_id: userId,
+      ...DEFAULT_PREFERENCES
+    }
+  }
+
+  // Merge user preferences with defaults for any missing fields
+  return {
+    user_id: userId,
+    enabled: userPrefs.enabled ?? DEFAULT_PREFERENCES.enabled,
+    auto_status_update: userPrefs.auto_status_update ?? DEFAULT_PREFERENCES.auto_status_update,
+    auto_dnd: userPrefs.auto_dnd ?? DEFAULT_PREFERENCES.auto_dnd,
+    auto_reply_enabled: userPrefs.auto_reply_enabled ?? DEFAULT_PREFERENCES.auto_reply_enabled,
+    custom_status_text: userPrefs.custom_status_text ?? DEFAULT_PREFERENCES.custom_status_text,
+    custom_status_emoji: userPrefs.custom_status_emoji ?? DEFAULT_PREFERENCES.custom_status_emoji,
+    auto_reply_message: userPrefs.auto_reply_message ?? DEFAULT_PREFERENCES.auto_reply_message,
+    urgent_keywords: userPrefs.urgent_keywords ?? DEFAULT_PREFERENCES.urgent_keywords
+  }
 }
 
 const getActiveUserConnection = async (userId: string): Promise<SlackUserConnection | undefined> => {
@@ -174,6 +207,21 @@ const updateFocusSession = async (sessionId: number, updates: {
   await db('slack_focus_sessions')
     .where({ id: sessionId })
     .update(updates)
+}
+
+const getAllActiveFocusSessions = async (userId: string): Promise<SlackFocusSession[]> => {
+  return await db('slack_focus_sessions')
+    .where({ user_id: userId, is_active: true })
+    .orderBy('start_time', 'desc')
+}
+
+const endAllActiveFocusSessions = async (userId: string): Promise<void> => {
+  await db('slack_focus_sessions')
+    .where({ user_id: userId, is_active: true })
+    .update({ 
+      is_active: false, 
+      end_time: new Date() 
+    })
 }
 
 const updateExpiredFocusSession = async (sessionId: number): Promise<void> => {
@@ -305,13 +353,6 @@ const upsertUserConnection = async (connectionData: {
   }
 }
 
-const ensureUserPreferences = async (userId: string): Promise<void> => {
-  const existing = await db('slack_preferences').where({ user_id: userId }).first()
-  
-  if (!existing) {
-    await db('slack_preferences').insert({ user_id: userId })
-  }
-}
 
 const disconnectUserConnections = async (userId: string): Promise<void> => {
   await db('slack_user_connections')
@@ -319,11 +360,17 @@ const disconnectUserConnections = async (userId: string): Promise<void> => {
     .update({ is_active: false })
 }
 
+const disconnectUserWorkspace = async (userId: string, workspaceId: string): Promise<void> => {
+  await db('slack_user_connections')
+    .where({ user_id: userId, workspace_id: workspaceId })
+    .update({ is_active: false })
+}
+
 const getUserSlackConnections = async (userId: string): Promise<any[]> => {
-  return await db('slack_user_connections as suc')
+  return db('slack_user_connections as suc')
     .join('slack_workspaces as sw', 'suc.workspace_id', 'sw.id')
     .where({ 'suc.user_id': userId, 'suc.is_active': true })
-    .select('sw.team_name', 'sw.team_domain', 'suc.created_at')
+    .select('sw.team_name', 'sw.team_domain', 'sw.team_id', 'sw.id', 'suc.created_at')
 }
 
 const updateUserPreferences = async (userId: string, updates: {
@@ -339,24 +386,22 @@ const updateUserPreferences = async (userId: string, updates: {
   const existing = await db('slack_preferences').where({ user_id: userId }).first()
   
   if (existing) {
-    const [updated] = await db('slack_preferences')
+    await db('slack_preferences')
       .where({ user_id: userId })
       .update({
         ...updates,
         urgent_keywords: updates.urgent_keywords ? JSON.stringify(updates.urgent_keywords) : undefined,
         updated_at: new Date()
       })
-      .returning('*')
-    return updated
+    return await getUserPreferences(userId) // Use the function that applies defaults
   } else {
-    const [created] = await db('slack_preferences')
+    await db('slack_preferences')
       .insert({
         user_id: userId,
         ...updates,
         urgent_keywords: updates.urgent_keywords ? JSON.stringify(updates.urgent_keywords) : undefined
       })
-      .returning('*')
-    return created
+    return await getUserPreferences(userId) // Use the function that applies defaults
   }
 }
 
@@ -369,9 +414,11 @@ export const SlackRepo = {
   createFocusSession,
   createFocusSessionWorkspace,
   getActiveFocusSession,
+  getAllActiveFocusSessions,
   getFocusSessionById,
   getFocusSessionWorkspaces,
   updateFocusSession,
+  endAllActiveFocusSessions,
   updateExpiredFocusSession,
   getFocusSessionStatus,
   createSessionActivity,
@@ -380,8 +427,8 @@ export const SlackRepo = {
   deleteOAuthState,
   upsertWorkspace,
   upsertUserConnection,
-  ensureUserPreferences,
   disconnectUserConnections,
+  disconnectUserWorkspace,
   getUserSlackConnections,
   updateUserPreferences
 }

@@ -8,14 +8,22 @@ import { asyncHandler, ApiError } from '../middleware/errorHandler.js'
 
 const router = Router()
 
-const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:1420'
+const getSuccessRedirectUrl = (result: { connected: boolean, workspace: string, redirectType: 'dev' | 'prod' }): string => {
+  if (result.redirectType === 'prod') {
+    return 'https://ebb.cool/slack-success?slack=connected&workspace=' + encodeURIComponent(result.workspace)
+  }
+  return 'http://localhost:1420/settings/integrations?slack=connected&workspace=' + encodeURIComponent(result.workspace)
+}
 
 const initiateOAuth = async (req: Request, res: Response): Promise<void> => {
   if (!req.user) {
     throw new ApiError('User authentication required', 401)
   }
 
-  const authUrl = await SlackOAuthService.generateAuthUrl(req.user.id)
+  const { redirectType } = req.query
+  const validRedirectType = redirectType === 'prod' ? 'prod' : 'dev'
+
+  const authUrl = await SlackOAuthService.generateAuthUrl(req.user.id, undefined, validRedirectType)
   
   res.json({
     success: true,
@@ -38,10 +46,12 @@ const handleOAuthCallback = async (req: Request, res: Response): Promise<void> =
     throw new ApiError('OAuth state is required', 400)
   }
 
+
   const result = await SlackOAuthService.exchangeCodeForTokens(code, state)
-  
-  // Redirect user to success page instead of returning JSON
-  const redirectUrl = `${FRONTEND_URL}/settings/integrations?slack=connected&workspace=${encodeURIComponent(result.workspace)}`
+
+  // Use the appropriate frontend URL based on redirect type
+  const successRedirectUrl = getSuccessRedirectUrl(result)
+  const redirectUrl = `${successRedirectUrl}`
   res.redirect(redirectUrl)
 }
 
@@ -55,6 +65,23 @@ const disconnectSlack = async (req: Request, res: Response): Promise<void> => {
   res.json({
     success: true,
     message: 'Slack integration disconnected successfully'
+  })
+}
+
+const disconnectSlackWorkspace = async (req: Request, res: Response): Promise<void> => {
+  if (!req.user) {
+    throw new ApiError('User authentication required', 401)
+  }
+
+  if (!req.params.workspaceId) {
+    throw new ApiError('Workspace ID is required', 400)
+  }
+
+  await SlackOAuthService.disconnectUserWorkspace(req.user.id, req.params.workspaceId)
+  
+  res.json({
+    success: true,
+    message: 'Slack workspace disconnected successfully'
   })
 }
 
@@ -111,17 +138,12 @@ const endFocusSession = async (req: Request, res: Response): Promise<void> => {
     throw new ApiError('User authentication required', 401)
   }
 
-  const { sessionId } = req.body
-
-  const result = await SlackService.endFocusSession(req.user.id, sessionId)
+  const result = await SlackService.endFocusSession(req.user.id)
   
   res.json({
     success: true,
     message: `Focus session ended - ${result.workspaces.length} workspace(s) processed`,
-    data: {
-      sessionId,
-      ...result
-    }
+    data: result
   })
 }
 
@@ -272,6 +294,7 @@ router.get('/callback', asyncHandler(handleOAuthCallback))
 
 // Management routes
 router.delete('/disconnect', AuthMiddleware.authenticateToken, asyncHandler(disconnectSlack))
+router.delete('/disconnect/:workspaceId', AuthMiddleware.authenticateToken, asyncHandler(disconnectSlackWorkspace))
 router.get('/status', AuthMiddleware.authenticateToken, asyncHandler(getSlackStatus))
 router.put('/preferences', AuthMiddleware.authenticateToken, asyncHandler(updateSlackPreferences))
 
