@@ -18,6 +18,25 @@ const config = {
   }
 }
 
-export const db = knex(config)
+// Create a function to get the database instance
+// This allows us to override it during testing
+const createDatabase = () => {
+  // Check if we're in test mode and have a test database available
+  if (process.env.NODE_ENV === 'test') {
+    try {
+      const testConfig = require('../tests/helpers/testDatabaseConfig')
+      const testDb = testConfig.getTestDatabase()
+      if (testDb) {
+        return testDb
+      }
+    } catch (error) {
+      // Test config not available, use normal database
+    }
+  }
+  
+  return knex(config)
+}
+
+export const db = createDatabase()
 
 export default db 

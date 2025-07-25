@@ -36,3 +36,8 @@ report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
 location_db
 
 .cursor
+
+# supabase
+supabase/supabase/.temp/
+supabase/.temp/
+supabase/.branches/

@@ -15,6 +15,18 @@ export interface TestJobData {
   [key: string]: any
 }
 
+export interface SlackCleanupJobData {
+  sessionId: string
+  userId: string
+}
+
+export interface UserMetrics {
+  newUsers: number
+  paidUsers: number
+  inactiveUsers: number
+  totalUsers: number
+}
+
 // Job result interface
 export interface JobResult {
   success: boolean
@@ -63,6 +75,7 @@ export interface UserActivitySummary {
 // Job queues
 export const JOB_QUEUES = {
   USER_MONITORING: 'user-monitoring',
+  SLACK_CLEANUP: 'slack-cleanup',
 } as const
 
 export type JobQueue = typeof JOB_QUEUES[keyof typeof JOB_QUEUES]
@@ -73,6 +86,8 @@ export const JOB_TYPES = {
   CHECK_PAID_USERS: 'check-paid-users',
   CHECK_INACTIVE_USERS: 'check-inactive-users',
   TEST_JOB: 'test-job',
+  SLACK_CLEANUP_DND: 'slack-cleanup-dnd',
+  SLACK_CLEANUP_STATUS: 'slack-cleanup-status',
 } as const
 
 export type JobType = typeof JOB_TYPES[keyof typeof JOB_TYPES]

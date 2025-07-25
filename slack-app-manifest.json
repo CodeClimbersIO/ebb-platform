@@ -1,0 +1,49 @@
+{
+  "display_information": {
+    "name": "Ebb Focus Assistant",
+    "description": "Automatically manage your Slack status and notifications during focus sessions with Ebb",
+    "background_color": "#2c3e50",
+    "long_description": "Ebb Focus Assistant helps you maintain deep focus by automatically updating your Slack status, enabling Do Not Disturb mode, and managing auto-replies during your focus sessions. When you start a focus session in Ebb, your Slack status will be updated to show you're focusing, DND will be enabled, and the bot will automatically respond to messages with your custom message. Urgent messages containing keywords like 'urgent' or 'emergency' will receive special handling."
+  },
+  "features": {
+    "app_home": {
+      "home_tab_enabled": true,
+      "messages_tab_enabled": true,
+      "messages_tab_read_only_enabled": false
+    },
+    "bot_user": {
+      "display_name": "Ebb Focus Assistant",
+      "always_online": true
+    }
+  },
+  "oauth_config": {
+    "redirect_urls": [
+      "https://ebb-slack-dev.ebb.cool/api/slack/callback",
+      "http://localhost:8001/api/slack/callback"
+    ],
+    "scopes": {
+      "user": ["users.profile:write", "dnd:read", "dnd:write"],
+      "bot": [
+        "app_mentions:read",
+        "channels:history",
+        "chat:write",
+        "im:history",
+        "im:read",
+        "im:write",
+        "users:read"
+      ]
+    }
+  },
+  "settings": {
+    "event_subscriptions": {
+      "request_url": "https://ebb-slack-dev.ebb.cool/api/slack/events",
+      "bot_events": ["app_mention", "message.im"]
+    },
+    "interactivity": {
+      "is_enabled": false
+    },
+    "org_deploy_enabled": false,
+    "socket_mode_enabled": false,
+    "token_rotation_enabled": false
+  }
+}
