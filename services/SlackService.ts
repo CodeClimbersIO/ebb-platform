@@ -463,13 +463,6 @@ const getDndInfo = async (userId: string): Promise<any> => {
 const startFocusSession = async (userId: string, sessionId?: string, durationMinutes?: number): Promise<MultiWorkspaceResponse> => {
   const preferences = await SlackRepo.getUserPreferences(userId)
   
-  if (!preferences.enabled) {
-    return {
-      overall_success: true,
-      workspaces: []
-    }
-  }
-
   const connections = await SlackRepo.getAllActiveUserConnections(userId)
   
   if (connections.length === 0) {
@@ -502,7 +495,6 @@ const startFocusSession = async (userId: string, sessionId?: string, durationMin
     try {
       const token = SlackOAuthService.getDecryptedToken(connection.access_token)
 
-      // Update status if enabled
       if (preferences.auto_status_update) {
         await executeWithRetry(async () => {
           const response = await fetch('https://slack.com/api/users.profile.set', {
@@ -521,7 +513,6 @@ const startFocusSession = async (userId: string, sessionId?: string, durationMin
           })
 
           const data = await response.json() as SlackUserProfile
-          
           if (!data.ok) {
             throw new Error(data.error || 'Unknown error')
           }
@@ -530,7 +521,6 @@ const startFocusSession = async (userId: string, sessionId?: string, durationMin
         workspaceResult.status_updated = true
       }
 
-      // Enable DND if enabled and duration provided
       if (preferences.auto_dnd && durationMinutes) {
         await executeWithRetry(async () => {
           const response = await fetch('https://slack.com/api/dnd.setSnooze', {

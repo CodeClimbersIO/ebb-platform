@@ -76,7 +76,7 @@ CREATE TABLE slack_user_connections (
 CREATE TABLE slack_preferences (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE UNIQUE,
-  enabled BOOLEAN DEFAULT false,
+  enabled BOOLEAN DEFAULT true,
   auto_status_update BOOLEAN DEFAULT true, -- Auto-update status during focus
   auto_dnd BOOLEAN DEFAULT true, -- Auto-enable DND during focus
   custom_status_text TEXT DEFAULT 'Focusing with Ebb', -- Custom status message
