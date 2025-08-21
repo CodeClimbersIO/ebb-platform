@@ -3,6 +3,7 @@ import request from 'supertest'
 import app from '../../index'
 import { startTestServer, stopTestServer } from '../helpers/testServer'
 import { UserProfileRepo } from '../../repos/UserProfile'
+import { LicenseRepo } from '../../repos/License'
 
 describe('Users API', () => {
   beforeAll(async () => {
@@ -181,6 +182,128 @@ describe('Users API', () => {
       expect(response.headers['access-control-allow-origin']).toBe('*')
       expect(response.headers['access-control-allow-methods']).toContain('GET')
       expect(response.headers['access-control-allow-headers']).toContain('Authorization')
+    })
+  })
+
+  describe('POST /api/users/start-trial', () => {
+    describe('Authentication Required', () => {
+      it('should return 401 when no authorization header is provided', async () => {
+        const response = await request(app)
+          .post('/api/users/start-trial')
+          .expect(401)
+
+        expect(response.body).toEqual({
+          success: false,
+          error: 'Access token required'
+        })
+      })
+
+      it('should return 401 when token is invalid', async () => {
+        const response = await request(app)
+          .post('/api/users/start-trial')
+          .set('Authorization', 'Bearer invalid_token')
+          .expect(401)
+
+        expect(response.body).toEqual({
+          success: false,
+          error: 'Invalid or expired token'
+        })
+      })
+    })
+
+    describe('Successful Authentication', () => {
+      let originalGetLicenseByUserId: typeof LicenseRepo.getLicenseByUserId
+      let originalCreateLicense: typeof LicenseRepo.createLicense
+
+      beforeEach(() => {
+        originalGetLicenseByUserId = LicenseRepo.getLicenseByUserId
+        originalCreateLicense = LicenseRepo.createLicense
+      })
+
+      afterEach(() => {
+        LicenseRepo.getLicenseByUserId = originalGetLicenseByUserId
+        LicenseRepo.createLicense = originalCreateLicense
+      })
+
+      it('should create a free trial when user has no existing license', async () => {
+        LicenseRepo.getLicenseByUserId = async () => null
+        LicenseRepo.createLicense = async (data) => ({
+          id: 'test-license-id',
+          user_id: data.user_id,
+          license_type: data.license_type,
+          purchase_date: new Date(),
+          expiration_date: data.expiration_date,
+          created_at: new Date(),
+          updated_at: new Date(),
+        })
+
+        const response = await request(app)
+          .post('/api/users/start-trial')
+          .set('Authorization', 'Bearer valid_test_token')
+          .expect(200)
+
+        expect(response.body).toEqual({
+          success: true,
+          message: 'Free trial started successfully'
+        })
+      })
+
+      it('should return 422 when user already has a license', async () => {
+        LicenseRepo.getLicenseByUserId = async () => ({
+          id: 'existing-license-id',
+          user_id: 'test-user-123',
+          license_type: 'perpetual',
+          purchase_date: new Date(),
+          expiration_date: new Date(),
+          created_at: new Date(),
+          updated_at: new Date(),
+        })
+
+        const response = await request(app)
+          .post('/api/users/start-trial')
+          .set('Authorization', 'Bearer valid_test_token')
+          .expect(422)
+
+        expect(response.body).toEqual({
+          success: false,
+          error: 'User already has a license'
+        })
+      })
+
+      it('should set expiration date to 2 weeks from now', async () => {
+        let capturedLicenseData: any = null
+        
+        LicenseRepo.getLicenseByUserId = async () => null
+        LicenseRepo.createLicense = async (data) => {
+          capturedLicenseData = data
+          return {
+            id: 'test-license-id',
+            user_id: data.user_id,
+            license_type: data.license_type,
+            purchase_date: new Date(),
+            expiration_date: data.expiration_date,
+            created_at: new Date(),
+            updated_at: new Date(),
+          }
+        }
+
+        await request(app)
+          .post('/api/users/start-trial')
+          .set('Authorization', 'Bearer valid_test_token')
+          .expect(200)
+
+        expect(capturedLicenseData).toBeTruthy()
+        expect(capturedLicenseData.license_type).toBe('free_trial')
+        expect(capturedLicenseData.user_id).toBe('test-user-123')
+        
+        const now = new Date()
+        const twoWeeksFromNow = new Date()
+        twoWeeksFromNow.setDate(twoWeeksFromNow.getDate() + 14)
+        
+        const expirationDate = new Date(capturedLicenseData.expiration_date)
+        const timeDiff = Math.abs(expirationDate.getTime() - twoWeeksFromNow.getTime())
+        expect(timeDiff).toBeLessThan(1000) // Should be within 1 second
+      })
     })
   })
 }) 
