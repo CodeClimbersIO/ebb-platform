@@ -1,6 +1,6 @@
 import knex, { Knex } from 'knex'
 import { setTestDatabase, clearTestDatabase } from './testDatabaseConfig'
-import { readFileSync } from 'fs'
+import { readFileSync, readdirSync } from 'fs'
 import { join } from 'path'
 import { randomUUID } from 'crypto'
 
@@ -117,13 +117,17 @@ const setupTestDatabase = async (db: Knex): Promise<void> => {
 // Run the Supabase migrations
 const runMigrations = async (db: Knex): Promise<void> => {
   const migrationsDir = join(__dirname, '../../supabase/migrations')
-  const migrationFiles = [
-    '20240404_create_license_tables.sql', // Contains handle_updated_at function  
-    '20250523010151_add_profile.sql',     // Creates user_profile table
-    '20250613013303_add_daily_rollup.sql' // Creates activity_day_rollup table
-  ]
+  
+  // Read all SQL files and sort them chronologically by filename
+  const allFiles = readdirSync(migrationsDir)
+  const migrationFiles = allFiles
+    .filter(file => file.endsWith('.sql'))
+    .sort() // SQL migration files are named with timestamps, so sorting works
+  
+  console.log(`Running ${migrationFiles.length} migration files...`)
   
   for (const filename of migrationFiles) {
+    console.log(`Running migration: ${filename}`)
     const migrationPath = join(migrationsDir, filename)
     const migrationSql = readFileSync(migrationPath, 'utf8')
     
@@ -139,11 +143,13 @@ const runMigrations = async (db: Knex): Promise<void> => {
       } catch (error) {
         // Log but don't fail on expected errors (like duplicate functions/tables)
         if (error instanceof Error && !error.message.includes('already exists')) {
-          console.warn(`Migration warning for statement: ${statement.substring(0, 50)}...`, error.message)
+          console.warn(`Migration warning in ${filename} for statement: ${statement.substring(0, 50)}...`, error.message)
         }
       }
     }
   }
+  
+  console.log('All migrations completed')
 }
 
 // Insert test data for the marketing endpoints
