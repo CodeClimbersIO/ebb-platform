@@ -79,10 +79,41 @@ export const getTestDatabase = (): Knex => {
 export const resetTestDatabase = async (): Promise<void> => {
   const db = getTestDatabase()
   
-  // Clear all test data from our tables
-  await db('activity_day_rollup').del()
-  await db('user_profile').del()
-  await db('auth.users').del()
+  console.log('Resetting test database...')
+  
+  // Disable foreign key constraints temporarily to allow truncation
+  await db.raw('SET session_replication_role = replica')
+  
+  try {
+    // Get all user-created tables (exclude system tables)
+    const result = await db.raw(`
+      SELECT tablename 
+      FROM pg_tables 
+      WHERE schemaname IN ('public', 'auth') 
+      AND tablename NOT LIKE 'pg_%' 
+      AND tablename NOT LIKE 'sql_%'
+      ORDER BY tablename
+    `)
+    
+    const tables = result.rows.map((row: any) => row.tablename)
+    console.log(`Clearing ${tables.length} tables: ${tables.join(', ')}`)
+    
+    // Truncate all tables (faster than DELETE and resets sequences)
+    for (const table of tables) {
+      try {
+        // Use schema-qualified table names
+        const schemaTable = table === 'users' ? 'auth.users' : `public.${table}`
+        await db.raw(`TRUNCATE TABLE ${schemaTable} RESTART IDENTITY CASCADE`)
+      } catch (error) {
+        console.warn(`Warning: Could not truncate table ${table}:`, error instanceof Error ? error.message : error)
+      }
+    }
+  } finally {
+    // Re-enable foreign key constraints
+    await db.raw('SET session_replication_role = DEFAULT')
+  }
+  
+  console.log('Test database reset complete')
 }
 
 // Set up the test database with migrations and test data
