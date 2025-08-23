@@ -1,4 +1,4 @@
-import express, { json, urlencoded } from 'express'
+import express, { json, urlencoded, raw } from 'express'
 import { UserController } from './controllers/UserController'
 import { GeoLocationController } from './controllers/GeoLocationController'
 import { FriendsController } from './controllers/FriendsController'
@@ -7,6 +7,8 @@ import { MarketingController } from './controllers/MarketingController'
 import { JobQueueController } from './controllers/JobQueueController'
 import { SlackController } from './controllers/SlackController'
 import { NotificationTestController } from './controllers/NotificationTestController'
+import { CheckoutController } from './controllers/CheckoutController'
+import { WebhookController } from './controllers/WebhookController'
 import { GeoLocationService } from './services/GeoLocationService'
 import { jobQueueService } from './services/JobQueueService'
 import { slackCleanupQueueService } from './services/SlackCleanupQueueService'
@@ -14,6 +16,9 @@ import { ApiError } from './middleware/errorHandler'
 
 const app = express()
 const PORT = parseInt(process.env.PORT || '8001', 10)
+
+// Webhook middleware (needs raw body for signature verification)
+app.use('/api/webhooks/stripe', raw({ type: 'application/json' }))
 
 // Middleware
 app.use(json())
@@ -49,9 +54,11 @@ app.use('/api/rollup', RollupController.router)
 app.use('/api/jobs', JobQueueController.router)
 app.use('/api/slack', SlackController.router)
 app.use('/api/notifications', NotificationTestController.router)
+app.use('/api/checkout', CheckoutController.router)
 
 // Public API Routes (no authentication required)
 app.use('/api/marketing', MarketingController.router)
+app.use('/api/webhooks', WebhookController.router)
 
 // 404 handler
 app.use('*', (req, res) => {
@@ -187,8 +194,10 @@ export const startServer = async (port: number = PORT) => {
       console.log(`📈 Marketing API (public): http://localhost:${port}/api/marketing`)
       console.log(`⚙️  Job Queue API (auth required): http://localhost:${port}/api/jobs`)
       console.log(`💬 Slack API (auth required): http://localhost:${port}/api/slack`)
+      console.log(`💳 Checkout API (auth required): http://localhost:${port}/api/checkout`)
+      console.log(`🔗 Webhooks API (public): http://localhost:${port}/api/webhooks`)
       console.log(`⚙️  Job Queue: User monitoring jobs scheduled (requires Redis)`)
-      console.log('🔐 Authentication: Supabase JWT required for /api routes (except marketing and slack/events)')
+      console.log('🔐 Authentication: Supabase JWT required for /api routes (except marketing, webhooks, and slack/events)')
     })
   } catch (error) {
     console.error('❌ Failed to start server:', error)
