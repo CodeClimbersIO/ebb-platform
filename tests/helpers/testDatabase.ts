@@ -81,9 +81,6 @@ export const resetTestDatabase = async (): Promise<void> => {
   
   console.log('Resetting test database...')
   
-  // Disable foreign key constraints temporarily to allow truncation
-  await db.raw('SET session_replication_role = replica')
-  
   try {
     // Get all user-created tables (exclude system tables)
     const result = await db.raw(`
@@ -98,19 +95,26 @@ export const resetTestDatabase = async (): Promise<void> => {
     const tables = result.rows.map((row: any) => row.tablename)
     console.log(`Clearing ${tables.length} tables: ${tables.join(', ')}`)
     
-    // Truncate all tables (faster than DELETE and resets sequences)
-    for (const table of tables) {
-      try {
-        // Use schema-qualified table names
-        const schemaTable = table === 'users' ? 'auth.users' : `public.${table}`
-        await db.raw(`TRUNCATE TABLE ${schemaTable} RESTART IDENTITY CASCADE`)
-      } catch (error) {
-        console.warn(`Warning: Could not truncate table ${table}:`, error instanceof Error ? error.message : error)
-      }
+    if (tables.length === 0) {
+      console.log('No tables found to reset')
+      return
     }
-  } finally {
-    // Re-enable foreign key constraints
-    await db.raw('SET session_replication_role = DEFAULT')
+    
+    // Build schema-qualified table names
+    const schemaQualifiedTables = tables.map((table: string) => 
+      table === 'users' ? 'auth.users' : `public.${table}`
+    )
+    
+    // Use TRUNCATE with CASCADE to handle foreign key constraints
+    // This is more explicit and robust than disabling constraints
+    const truncateStatement = `TRUNCATE TABLE ${schemaQualifiedTables.join(', ')} RESTART IDENTITY CASCADE`
+    
+    console.log('Truncating all tables with CASCADE to handle foreign keys...')
+    await db.raw(truncateStatement)
+    
+  } catch (error) {
+    console.error('Failed to reset database:', error instanceof Error ? error.message : error)
+    throw new Error(`Database reset failed: ${error instanceof Error ? error.message : 'Unknown error'}`)
   }
   
   console.log('Test database reset complete')
