@@ -161,11 +161,25 @@ class JobQueueService {
       }
     )
 
+    // Schedule offline user check every 5 minutes
+    await this.queue.add(
+      JOB_TYPES.CHECK_OFFLINE_USERS,
+      {},
+      {
+        repeat: {
+          pattern: '*/5 * * * *', // Every 5 minutes
+        },
+        priority: JOB_PRIORITIES.NORMAL,
+        jobId: 'recurring-offline-user-check',
+      }
+    )
+
     console.log('✅ Recurring jobs scheduled successfully')
     console.log('   🧪 Test job: Every minute')
     console.log('   📋 New user check: Every 10 minutes')
     console.log('   💳 Paid user check: Every 10 minutes')
     console.log('   😴 Inactive user check: Daily at 9:00 AM')
+    console.log('   🔄 Offline user check: Every 5 minutes')
   }
 
   // Manual job triggers (for testing or one-off runs)
@@ -192,6 +206,15 @@ class JobQueueService {
       throw new Error('Queue not initialized')
     }
     return this.queue.add(JOB_TYPES.CHECK_INACTIVE_USERS, {}, {
+      priority: JOB_PRIORITIES.HIGH,
+    })
+  }
+
+  async triggerOfflineUserCheck() {
+    if (!this.queue) {
+      throw new Error('Queue not initialized')
+    }
+    return this.queue.add(JOB_TYPES.CHECK_OFFLINE_USERS, {}, {
       priority: JOB_PRIORITIES.HIGH,
     })
   }

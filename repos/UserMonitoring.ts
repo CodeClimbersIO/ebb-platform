@@ -151,10 +151,43 @@ const getUserActivitySummary = async (days: number = 7) => {
   }
 }
 
+/**
+ * Update users to offline status if they haven't checked in for 5+ minutes
+ */
+const updateOfflineUsers = async (): Promise<{ affectedRows: number }> => {
+  try {
+    console.log('🔄 Updating users to offline status...')
+    
+    const cutoffTime = new Date()
+    cutoffTime.setMinutes(cutoffTime.getMinutes() - 5) // 5 minutes ago
+
+    const query = `
+      UPDATE user_profile 
+      SET 
+        online_status = 'offline',
+        updated_at = NOW()
+      WHERE 
+        last_check_in < ? 
+        AND online_status != 'offline'
+    `
+    
+    const result = await db.raw(query, [cutoffTime.toISOString()])
+    const affectedRows = result.rowCount || 0
+    
+    console.log(`📊 Updated ${affectedRows} users to offline status`)
+    
+    return { affectedRows }
+  } catch (error) {
+    console.error('Error updating offline users:', error)
+    return { affectedRows: 0 }
+  }
+}
+
 export const UserMonitoringRepo = {
   getNewUsers,
   getPaidUsers,
   getInactiveUsers,
   getTotalUserCount,
-  getUserActivitySummary
+  getUserActivitySummary,
+  updateOfflineUsers
 } 

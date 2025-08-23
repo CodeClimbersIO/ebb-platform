@@ -8,6 +8,7 @@ import type {
   NewUserCheckJobData, 
   PaidUserCheckJobData, 
   InactiveUserCheckJobData,
+  OfflineUserCheckJobData,
   TestJobData,
   SlackCleanupJobData,
   JobResult,
@@ -265,6 +266,36 @@ export const processInactiveUserCheck = async (job: Job<InactiveUserCheckJobData
 }
 
 /**
+ * Process job to check for offline users and update their status (runs every 5 minutes)
+ */
+export const processOfflineUserCheck = async (job: Job<OfflineUserCheckJobData>): Promise<JobResult> => {
+  try {
+    console.log('🔄 Processing offline user check job...')
+    
+    // Update users who haven't checked in for 5+ minutes to offline status
+    const result = await UserMonitoringRepo.updateOfflineUsers()
+    console.log(`📊 Updated ${result.affectedRows} users to offline status`)
+    
+    return {
+      success: true,
+      message: `Offline user check completed - updated ${result.affectedRows} users to offline`,
+      data: { 
+        usersUpdated: result.affectedRows,
+        timestamp: new Date().toISOString() 
+      },
+      processedAt: new Date()
+    }
+  } catch (error) {
+    console.error('❌ Error processing offline user check:', error)
+    return {
+      success: false,
+      message: `Failed to check offline users: ${error}`,
+      processedAt: new Date()
+    }
+  }
+}
+
+/**
  * Process test job (runs every minute)
  */
 export const processTestJob = async (job: Job<TestJobData>): Promise<JobResult> => {
@@ -321,6 +352,7 @@ export const jobProcessors = {
   'check-new-users': processNewUserCheck,
   'check-paid-users': processPaidUserCheck,
   'check-inactive-users': processInactiveUserCheck,
+  'check-offline-users': processOfflineUserCheck,
   'test-job': processTestJob,
   'slack-cleanup-dnd': processSlackCleanup,
   'slack-cleanup-status': processSlackCleanup,

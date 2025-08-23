@@ -15,6 +15,10 @@ export interface TestJobData {
   [key: string]: any
 }
 
+export interface OfflineUserCheckJobData {
+  [key: string]: any
+}
+
 export interface SlackCleanupJobData {
   sessionId: string
   userId: string
@@ -85,6 +89,7 @@ export const JOB_TYPES = {
   CHECK_NEW_USERS: 'check-new-users',
   CHECK_PAID_USERS: 'check-paid-users',
   CHECK_INACTIVE_USERS: 'check-inactive-users',
+  CHECK_OFFLINE_USERS: 'check-offline-users',
   TEST_JOB: 'test-job',
   SLACK_CLEANUP_DND: 'slack-cleanup-dnd',
   SLACK_CLEANUP_STATUS: 'slack-cleanup-status',
