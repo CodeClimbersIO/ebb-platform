@@ -4,45 +4,20 @@ import { jobProcessors } from './JobProcessors'
 import { JOB_QUEUES, JOB_TYPES, JOB_PRIORITIES } from '../types/jobs'
 
 class JobQueueService {
-  private queue: Queue
-  private worker: Worker
+  private queue: Queue | null = null
+  private worker: Worker | null = null
   private isInitialized = false
 
   constructor() {
-    // Initialize queue
-    this.queue = new Queue(JOB_QUEUES.USER_MONITORING, {
-      connection: redisConfig,
-      defaultJobOptions: {
-        removeOnComplete: 50, // Keep last 50 completed jobs
-        removeOnFail: 100,    // Keep last 100 failed jobs
-        attempts: 3,          // Retry failed jobs up to 3 times
-        backoff: {
-          type: 'exponential',
-          delay: 2000,        // Start with 2 second delay
-        },
-      },
-    })
-
-    // Initialize worker
-    this.worker = new Worker(
-      JOB_QUEUES.USER_MONITORING,
-      async (job: any) => {
-        const processor = jobProcessors[job.name as keyof typeof jobProcessors]
-        if (!processor) {
-          throw new Error(`No processor found for job type: ${job.name}`)
-        }
-        return processor(job)
-      },
-      {
-        connection: redisConfig,
-        concurrency: 5, // Process up to 5 jobs concurrently
-      }
-    )
-
-    this.setupEventListeners()
+    // Don't initialize queue and worker in constructor
+    // They will be created lazily during initialize()
   }
 
   private setupEventListeners() {
+    if (!this.queue || !this.worker) {
+      throw new Error('Queue and worker must be initialized before setting up event listeners')
+    }
+
     // Queue events
     this.queue.on('waiting', (job: any) => {
       console.log(`📋 Job ${job.id} (${job.name}) is waiting`)
@@ -67,8 +42,6 @@ class JobQueueService {
     this.worker.on('error', (err: Error) => {
       console.error('❌ Worker error:', err)
     })
-
-
   }
 
   async initialize() {
@@ -78,6 +51,38 @@ class JobQueueService {
 
     try {
       console.log('🚀 Initializing Job Queue Service...')
+
+      // Create queue and worker
+      this.queue = new Queue(JOB_QUEUES.USER_MONITORING, {
+        connection: redisConfig,
+        defaultJobOptions: {
+          removeOnComplete: 50, // Keep last 50 completed jobs
+          removeOnFail: 100,    // Keep last 100 failed jobs
+          attempts: 3,          // Retry failed jobs up to 3 times
+          backoff: {
+            type: 'exponential',
+            delay: 2000,        // Start with 2 second delay
+          },
+        },
+      })
+
+      this.worker = new Worker(
+        JOB_QUEUES.USER_MONITORING,
+        async (job: any) => {
+          const processor = jobProcessors[job.name as keyof typeof jobProcessors]
+          if (!processor) {
+            throw new Error(`No processor found for job type: ${job.name}`)
+          }
+          return processor(job)
+        },
+        {
+          connection: redisConfig,
+          concurrency: 5, // Process up to 5 jobs concurrently
+        }
+      )
+
+      // Set up event listeners
+      this.setupEventListeners()
 
       // Wait for Redis connections
       await Promise.all([
@@ -98,6 +103,10 @@ class JobQueueService {
   }
 
   private async scheduleRecurringJobs() {
+    if (!this.queue) {
+      throw new Error('Queue not initialized')
+    }
+
     console.log('📅 Scheduling recurring jobs...')
 
     // Schedule test job every minute (for testing)
@@ -161,24 +170,36 @@ class JobQueueService {
 
   // Manual job triggers (for testing or one-off runs)
   async triggerNewUserCheck() {
+    if (!this.queue) {
+      throw new Error('Queue not initialized')
+    }
     return this.queue.add(JOB_TYPES.CHECK_NEW_USERS, {}, {
       priority: JOB_PRIORITIES.HIGH,
     })
   }
 
   async triggerPaidUserCheck() {
+    if (!this.queue) {
+      throw new Error('Queue not initialized')
+    }
     return this.queue.add(JOB_TYPES.CHECK_PAID_USERS, {}, {
       priority: JOB_PRIORITIES.HIGH,
     })
   }
 
   async triggerInactiveUserCheck() {
+    if (!this.queue) {
+      throw new Error('Queue not initialized')
+    }
     return this.queue.add(JOB_TYPES.CHECK_INACTIVE_USERS, {}, {
       priority: JOB_PRIORITIES.HIGH,
     })
   }
 
   async triggerTestJob() {
+    if (!this.queue) {
+      throw new Error('Queue not initialized')
+    }
     return this.queue.add(JOB_TYPES.TEST_JOB, {}, {
       priority: JOB_PRIORITIES.HIGH,
     })
@@ -186,6 +207,9 @@ class JobQueueService {
 
   // Get queue stats
   async getQueueStats() {
+    if (!this.queue) {
+      throw new Error('Queue not initialized')
+    }
     const [waiting, active, completed, failed] = await Promise.all([
       this.queue.getWaiting(),
       this.queue.getActive(),
@@ -205,10 +229,21 @@ class JobQueueService {
   async shutdown() {
     console.log('🛑 Shutting down Job Queue Service...')
     
-    await Promise.all([
-      this.worker.close(),
-      this.queue.close(),
-    ])
+    const promises = []
+    if (this.worker) {
+      promises.push(this.worker.close())
+    }
+    if (this.queue) {
+      promises.push(this.queue.close())
+    }
+    
+    if (promises.length > 0) {
+      await Promise.all(promises)
+    }
+    
+    this.queue = null
+    this.worker = null
+    this.isInitialized = false
     
     console.log('✅ Job Queue Service shut down successfully')
   }
