@@ -1,60 +1,55 @@
-import { newDb, type IMemoryDb } from 'pg-mem'
 import knex, { Knex } from 'knex'
 import { setTestDatabase, clearTestDatabase } from './testDatabaseConfig'
 import { readFileSync } from 'fs'
 import { join } from 'path'
 import { randomUUID } from 'crypto'
 
-let memoryDb: IMemoryDb | null = null
 let testDb: Knex | null = null
-const generatedUuids = new Set<string>()
 
 export const startTestDatabase = async (): Promise<Knex> => {
   if (testDb) {
     return testDb
   }
 
-  console.log('Starting in-memory PostgreSQL...')
+  console.log('Connecting to test PostgreSQL database...')
   
   // Set test environment
   process.env.NODE_ENV = 'test'
   
-  // Create a new in-memory database
-  memoryDb = newDb()
+  // Determine connection config based on environment
+  const isCI = process.env.CI === 'true'
+  const connectionConfig = {
+    host: 'localhost',
+    port: isCI ? 5432 : 5433, // CI uses standard port, local uses 5433
+    user: 'test_user',
+    password: 'test_pass',
+    database: 'ebb_test'
+  }
   
-  // Enable necessary PostgreSQL functions for our application
-  memoryDb.public.registerFunction({
-    name: 'gen_random_uuid',
-    returns: 'uuid' as any,
-    implementation: () => {
-      // Generate unique UUIDs and track them to avoid duplicates
-      let uuid: string
-      do {
-        uuid = randomUUID()
-      } while (generatedUuids.has(uuid))
-      
-      generatedUuids.add(uuid)
-      return uuid
+  // Create knex connection to PostgreSQL
+  testDb = knex({
+    client: 'postgresql',
+    connection: connectionConfig,
+    pool: {
+      min: 1,
+      max: 5
     }
   })
-  
-  // Register auth.uid() function (returns null for test environment)
-  memoryDb.public.registerFunction({
-    name: 'uid',
-    returns: 'uuid' as any,
-    implementation: () => null
-  })
-  
-  // Get knex adapter from pg-mem
-  testDb = memoryDb.adapters.createKnex() as Knex
 
-  // Run Supabase migrations to create required tables
-  await runSupabaseMigrations(testDb)
+  // Test connection
+  try {
+    await testDb.raw('SELECT 1')
+  } catch (error) {
+    throw new Error(`Failed to connect to test database: ${error}`)
+  }
+
+  // Run database setup
+  await setupTestDatabase(testDb)
   
   // Register the test database
   setTestDatabase(testDb)
   
-  console.log('In-memory PostgreSQL database ready with test schema')
+  console.log('Test PostgreSQL database ready with test schema')
   
   return testDb
 }
@@ -66,19 +61,12 @@ export const stopTestDatabase = async (): Promise<void> => {
   // Reset test environment
   delete process.env.NODE_ENV
   
-  // Clear UUID tracking for next test run
-  generatedUuids.clear()
-  
   if (testDb) {
     await testDb.destroy()
     testDb = null
   }
 
-  if (memoryDb) {
-    // In-memory database is automatically cleaned up
-    memoryDb = null
-    console.log('In-memory PostgreSQL stopped')
-  }
+  console.log('Test PostgreSQL connection closed')
 }
 
 export const getTestDatabase = (): Knex => {
@@ -97,31 +85,37 @@ export const resetTestDatabase = async (): Promise<void> => {
   await db('auth.users').del()
 }
 
-// Run the actual Supabase migrations 
-const runSupabaseMigrations = async (db: Knex): Promise<void> => {
-  // Only create the auth schema and users table (Supabase defaults)
+// Set up the test database with migrations and test data
+const setupTestDatabase = async (db: Knex): Promise<void> => {
+  // Create auth schema and minimal auth.users table
   await db.raw('CREATE SCHEMA IF NOT EXISTS auth')
-  
-  // Register auth.uid() function on the auth schema
-  try {
-    const authSchema = memoryDb!.getSchema('auth')
-    authSchema.registerFunction({
-      name: 'uid',
-      returns: 'uuid' as any, 
-      implementation: () => null
-    })
-  } catch (error) {
-    console.warn('Could not register auth schema functions:', error)
-  }
   
   // Create minimal auth.users table for FK references
   await db.raw(`
-    CREATE TABLE auth.users (
+    CREATE TABLE IF NOT EXISTS auth.users (
       id UUID PRIMARY KEY
     )
   `)
   
-  // Now run the actual migration files
+  // Mock auth.uid() function to return null (or a test user ID)
+  await db.raw(`
+    CREATE OR REPLACE FUNCTION auth.uid()
+    RETURNS UUID AS $$
+    BEGIN
+      RETURN NULL;
+    END;
+    $$ LANGUAGE plpgsql;
+  `)
+  
+  // Run the actual migration files
+  await runMigrations(db)
+  
+  // Insert test data after migrations
+  await insertTestData(db)
+}
+
+// Run the Supabase migrations
+const runMigrations = async (db: Knex): Promise<void> => {
   const migrationsDir = join(__dirname, '../../supabase/migrations')
   const migrationFiles = [
     '20240404_create_license_tables.sql', // Contains handle_updated_at function  
@@ -131,17 +125,7 @@ const runSupabaseMigrations = async (db: Knex): Promise<void> => {
   
   for (const filename of migrationFiles) {
     const migrationPath = join(migrationsDir, filename)
-    let migrationSql = readFileSync(migrationPath, 'utf8')
-    
-    // Clean up migration SQL for pg-mem compatibility
-    migrationSql = migrationSql
-      .replace(/CREATE OR REPLACE FUNCTION.*?END;[\s]*\$\$[\s]*LANGUAGE[\s]+plpgsql;/gs, '') // Remove function definitions
-      .replace(/DEFAULT gen_random_uuid\(\)/g, '') // Remove DEFAULT UUID generation (pg-mem issue)
-      .replace(/ALTER TABLE .* ENABLE ROW LEVEL SECURITY;/g, '') // Remove RLS
-      .replace(/CREATE POLICY.*?;/gs, '') // Remove policies
-      .replace(/GRANT.*?;/g, '') // Remove grants
-      .replace(/CREATE TRIGGER.*?;/gs, '') // Remove triggers
-      .replace(/-- ROLLBACK.*$/gms, '') // Remove rollback comments
+    const migrationSql = readFileSync(migrationPath, 'utf8')
     
     // Execute each statement
     const statements = migrationSql
@@ -153,13 +137,13 @@ const runSupabaseMigrations = async (db: Knex): Promise<void> => {
       try {
         await db.raw(statement)
       } catch (error) {
-        console.warn('error', error)
+        // Log but don't fail on expected errors (like duplicate functions/tables)
+        if (error instanceof Error && !error.message.includes('already exists')) {
+          console.warn(`Migration warning for statement: ${statement.substring(0, 50)}...`, error.message)
+        }
       }
     }
   }
-  
-  // Insert test data after migrations
-  await insertTestData(db)
 }
 
 // Insert test data for the marketing endpoints
@@ -186,9 +170,7 @@ const insertTestData = async (db: Knex): Promise<void> => {
     date.setDate(today.getDate() - i)
     const dateStr = date.toISOString().split('T')[0]
     
-    // Insert each record with explicit UUIDs since we removed DEFAULT
     await db('activity_day_rollup').insert({
-      id: randomUUID(),
       user_id: userId1,
       date: dateStr,
       tag_name: 'coding',
@@ -196,7 +178,6 @@ const insertTestData = async (db: Knex): Promise<void> => {
     })
     
     await db('activity_day_rollup').insert({
-      id: randomUUID(),
       user_id: userId2, 
       date: dateStr,
       tag_name: 'design',
@@ -204,4 +185,3 @@ const insertTestData = async (db: Knex): Promise<void> => {
     })
   }
 }
-
