@@ -1,6 +1,7 @@
-import { describe, it, expect, beforeEach, afterEach } from 'bun:test'
-import { UserProfileService } from '../../services/UserProfileService'
+import { describe, it, expect, beforeEach, afterEach, beforeAll, afterAll } from 'bun:test'
+import { UserProfileService } from '../UserProfileService'
 import { UserProfileRepo } from '../../repos/UserProfile'
+import { restoreAllMocks } from '../../tests/helpers/mockCleanup'
 
 describe('UserProfileService', () => {
   describe('getUserStatusCounts', () => {
