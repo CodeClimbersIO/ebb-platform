@@ -36,7 +36,7 @@ const testConfig = {
 
 let db: Knex | null = null
 
-export const createDatabase = (): Knex => {
+const createDatabaseConnection = (): Knex => {
   if (process.env.NODE_ENV === 'test') {
     return knex(testConfig)
   } else {
@@ -46,7 +46,15 @@ export const createDatabase = (): Knex => {
 
 export const getDb = (): Knex => {
   if(!db) {
-    db = createDatabase()
+    db = createDatabaseConnection()
+    console.log('Database connection created')
   }
   return db
+}
+
+export const stopDb = (): void => {
+  if (db) {
+    db.destroy()
+    db = null
+  }
 }

@@ -1,17 +1,8 @@
-import { describe, it, expect, beforeAll, afterAll } from 'bun:test'
+import { describe, it, expect } from 'bun:test'
 import request from 'supertest'
 import app from '../../index'
-import { startTestServer, stopTestServer } from '../helpers/testServer'
 
 describe('Health Check API', () => {
-  beforeAll(async () => {
-    await startTestServer()
-  })
-
-  afterAll(async () => {
-    await stopTestServer()
-  })
-
   describe('GET /health', () => {
     it('should return 200 and health status', async () => {
       const response = await request(app)

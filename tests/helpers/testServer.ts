@@ -1,6 +1,6 @@
 import { Server } from 'http'
 import app from '../../index'
-import { startTestDatabase, stopTestDatabase } from './testDatabase'
+import { stopTestDatabase } from './testDatabase'
 
 let server: Server | null = null
 const TEST_PORT = 3002 // Use different port for testing
@@ -9,9 +9,6 @@ export const startTestServer = async (): Promise<void> => {
   if (server) {
     return
   }
-
-  // Start the test database first
-  await startTestDatabase()
 
   return new Promise((resolve, reject) => {
     server = app.listen(TEST_PORT, (err?: Error) => {
@@ -31,8 +28,6 @@ export const stopTestServer = async (): Promise<void> => {
       server.close(async () => {
         server = null
         console.log('Test server stopped')
-        // Stop the test database
-        await stopTestDatabase()
         resolve()
       })
     } else {

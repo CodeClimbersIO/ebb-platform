@@ -1,95 +1,26 @@
-import knex, { Knex } from 'knex'
+import { Knex } from 'knex'
 import { readFileSync, readdirSync } from 'fs'
 import { join } from 'path'
 import { randomUUID } from 'crypto'
-import { createDatabase } from '../../config/database'
-
-let testDb: Knex | null = null
-
-export const setTestDatabase = (db: Knex): void => {
-  testDb = db
-}
-
-export const clearTestDatabase = (): void => {
-  testDb = null
-}
+import { getDb, stopDb } from '../../config/database'
 
 export const startTestDatabase = async (): Promise<Knex> => {
-  if (testDb) {
-    return testDb
-  }
-
-  console.log('Connecting to test PostgreSQL database...')
-  // Set test environment
-  process.env.NODE_ENV = 'test'
-  
-  // Determine connection config based on environment
-  const isCI = process.env.CI === 'true'
-  const connectionConfig = {
-    host: 'localhost',
-    port: isCI ? 5432 : 5433, // CI uses standard port, local uses 5433
-    user: 'test_user',
-    password: 'test_pass',
-    database: 'ebb_test'
-  }
-  
-  // Create knex connection to PostgreSQL
-  testDb = knex({
-    client: 'postgresql',
-    connection: connectionConfig,
-    pool: {
-      min: 1,
-      max: 5
-    }
-  })
-
-  // Test connection
-  try {
-    await testDb.raw('SELECT 1')
-  } catch (error) {
-    throw new Error(`Failed to connect to test database: ${error}`)
-  }
-
-  // Run database setup
-  await setupTestDatabase(testDb)
-  
-  // Force the proxy to use this test database
-  createDatabase()
-  
-  console.log('Test PostgreSQL database ready with test schema')
-  
-  return testDb
+  const db = getDb()
+  await setupTestDatabase(db)
+  return db
 }
 
 export const stopTestDatabase = async (): Promise<void> => {
-  
-  console.log('Deleting test environment')
-  console.log(testDb)
-  if (testDb) {
     try {
       await resetTestDatabase()
-      await testDb.destroy()
-      testDb = null
+      await stopDb()
     } catch (error) {
       console.error('Failed to destroy test database:', error)
     }
-  }
-  clearTestDatabase()
-
-  console.log('Test PostgreSQL connection closed')
-}
-
-export const getTestDatabase = (): Knex => {
-  console.log('getTestDatabase', testDb)
-  if (!testDb) {
-    console.log('testDb not found')
-    throw new Error('Test database not started. Call startTestDatabase() first.')
-  }
-  return testDb
 }
 
 export const resetTestDatabase = async (): Promise<void> => {
-  const db = getTestDatabase()
+  const db = getDb()
   
   console.log('Dropping all test database tables...')
   

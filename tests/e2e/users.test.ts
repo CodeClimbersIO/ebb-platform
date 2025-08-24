@@ -1,19 +1,10 @@
-import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach } from 'bun:test'
+import { describe, it, expect, beforeEach, afterEach } from 'bun:test'
 import request from 'supertest'
 import app from '../../index'
-import { startTestServer, stopTestServer } from '../helpers/testServer'
 import { UserProfileRepo } from '../../repos/UserProfile'
 import { LicenseRepo } from '../../repos/License'
 
 describe('Users API', () => {
-  beforeAll(async () => {
-    await startTestServer()
-  })
-
-  afterAll(async () => {
-    await stopTestServer()
-  })
-
   describe('GET /api/users/status-counts', () => {
     describe('Authentication Required', () => {
       it('should return 401 when no authorization header is provided', async () => {

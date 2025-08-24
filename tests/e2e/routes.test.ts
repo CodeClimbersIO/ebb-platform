@@ -1,17 +1,8 @@
-import { describe, it, expect, beforeAll, afterAll } from 'bun:test'
+import { describe, it, expect } from 'bun:test'
 import request from 'supertest'
 import app from '../../index'
-import { startTestServer, stopTestServer } from '../helpers/testServer'
 
 describe('General Routes', () => {
-  beforeAll(async () => {
-    await startTestServer()
-  })
-
-  afterAll(async () => {
-    await stopTestServer()
-  })
-
   describe('404 handling', () => {
     it('should return 404 for unknown routes', async () => {
       const response = await request(app)

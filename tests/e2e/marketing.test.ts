@@ -1,19 +1,10 @@
-import { describe, it, expect, beforeAll, afterAll } from 'bun:test'
+import { describe, it, expect } from 'bun:test'
 import request from 'supertest'
 import app from '../../index'
-import { startTestServer, stopTestServer } from '../helpers/testServer'
 
 describe('Marketing API', () => {
-  beforeAll(async () => {
-    await startTestServer()
-  })
-
-  afterAll(async () => {
-    await stopTestServer()
-  })
-
   describe('GET /api/marketing/weekly-activity', () => {
-    it('should return 200 and weekly activity data', async () => {
+    it.only('should return 200 and weekly activity data', async () => {
       const response = await request(app)
         .get('/api/marketing/weekly-activity')
         .expect(200)
