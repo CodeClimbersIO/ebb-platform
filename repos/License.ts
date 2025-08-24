@@ -43,7 +43,23 @@ const tableName = 'license'
 const getLicenseByUserId = async (userId: string): Promise<License | null> => {
   const result = await db(tableName)
     .where({ user_id: userId })
-    .first()
+    .first('*')
+  
+  return result || null
+}
+
+const getLicensesByUserId = async (userId: string): Promise<License[]> => {
+  const result = await db(tableName)
+    .where({ user_id: userId })
+    .select('*')
+  
+  return result || []
+}
+
+const getActiveLicenseByUserId = async (userId: string): Promise<License | null> => {
+  const result = await db(tableName)
+    .where({ user_id: userId, status: 'active' })
+    .first('*')
   
   return result || null
 }
@@ -128,7 +144,8 @@ const updateLicenseByStripePaymentId = async (stripePaymentId: string, status: L
 }
 
 export const LicenseRepo = {
-  getLicenseByUserId,
+  getLicensesByUserId,
+  getActiveLicenseByUserId,
   createLicense,
   updateLicense,
   deleteLicense,

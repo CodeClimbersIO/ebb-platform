@@ -101,7 +101,7 @@ export const ActivityDayRollupRepo = {
       .select('user_id', db.raw('SUM(total_duration_minutes) as total_minutes'))
       .groupBy('user_id')
 
-    return result.map(row => ({
+    return result.map((row: any) => ({
       userId: row.user_id,
       totalMinutes: parseInt(row.total_minutes as string) || 0
     }))

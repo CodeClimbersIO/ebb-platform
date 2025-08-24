@@ -13,10 +13,10 @@ declare global {
   }
 }
 
-// Test mode mock user - only used when NODE_ENV === 'test'
+// founder user
 const TEST_USER = {
-  id: 'test-user-123',
-  email: 'test@example.com',
+  id: '409cf9b9-7aae-4a13-aca9-1bcd7b9a4209',
+  email: 'founder@example.com',
   role: 'user'
 }
 

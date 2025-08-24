@@ -6,6 +6,7 @@ import { getDb, stopDb } from '../../config/database'
 
 export const startTestDatabase = async (): Promise<Knex> => {
   const db = getDb()
+  console.log('Starting test database...')
   await setupTestDatabase(db)
   return db
 }
@@ -34,13 +35,6 @@ export const resetTestDatabase = async (): Promise<void> => {
       DROP ROLE IF EXISTS service_role;
 
     `)
-    
-    // Recreate empty schemas
-    await db.raw(`
-      CREATE SCHEMA public;
-      CREATE SCHEMA auth;
-    `)
-    
   } catch (error) {
     console.error('Failed to drop database tables:', error instanceof Error ? error.message : error)
     throw new Error(`Database reset failed: ${error instanceof Error ? error.message : 'Unknown error'}`)
@@ -51,8 +45,10 @@ export const resetTestDatabase = async (): Promise<void> => {
 
 // Set up the test database with migrations and test data
 const setupTestDatabase = async (db: Knex): Promise<void> => {
+  console.log('Setting up test database...')
   // Create auth schema and minimal auth.users table
   await db.raw('CREATE SCHEMA IF NOT EXISTS auth')
+  await db.raw('CREATE SCHEMA IF NOT EXISTS public')
   
   // Create the authenticated role that Supabase uses (if it doesn't exist)
   try {

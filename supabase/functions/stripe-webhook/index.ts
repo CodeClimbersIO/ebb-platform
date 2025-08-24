@@ -21,39 +21,39 @@ Deno.serve(async (req) => {
     }
 
     switch (event.type) {
-      case 'checkout.session.completed': {
-        const session = event.data.object as Stripe.Checkout.Session
-        const customerId = session.customer as string
-        const userId = session.client_reference_id 
+      // case 'checkout.session.completed': {
+      //   const session = event.data.object as Stripe.Checkout.Session
+      //   const customerId = session.customer as string
+      //   const userId = session.client_reference_id 
 
-        if (!userId) {
-          console.error('Webhook Error: No user ID (client_reference_id) found in checkout session.')
-          throw new Error('No user ID found in session')
-        }
+      //   if (!userId) {
+      //     console.error('Webhook Error: No user ID (client_reference_id) found in checkout session.')
+      //     throw new Error('No user ID found in session')
+      //   }
 
-        if (session.mode === 'payment') {
-          const ONE_YEAR_IN_MS = 365 * 24 * 60 * 60 * 1000
-          const expirationDate = new Date(Date.now() + ONE_YEAR_IN_MS)
+      //   if (session.mode === 'payment') {
+      //     const ONE_YEAR_IN_MS = 365 * 24 * 60 * 60 * 1000
+      //     const expirationDate = new Date(Date.now() + ONE_YEAR_IN_MS)
 
-          const license: License = {
-            user_id: userId,
-            status: 'active',
-            license_type: 'perpetual',
-            purchase_date: new Date().toISOString(),
-            expiration_date: expirationDate.toISOString(),
-            stripe_customer_id: customerId,
-            stripe_payment_id: session.payment_intent as string
-          }
+      //     const license: License = {
+      //       user_id: userId,
+      //       status: 'active',
+      //       license_type: 'perpetual',
+      //       purchase_date: new Date().toISOString(),
+      //       expiration_date: expirationDate.toISOString(),
+      //       stripe_customer_id: customerId,
+      //       stripe_payment_id: session.payment_intent as string
+      //     }
 
-          const { error: licenseError } = await licenseRepo.upsertLicense(license)
+      //     const { error: licenseError } = await licenseRepo.upsertLicense(license)
 
-          if (licenseError) {
-            console.error('Supabase upsert error (perpetual):', licenseError)
-            throw licenseError
-          }
-        }
-        break
-      }
+      //     if (licenseError) {
+      //       console.error('Supabase upsert error (perpetual):', licenseError)
+      //       throw licenseError
+      //     }
+      //   }
+      //   break
+      // }
       // Note: Subscription creation handled by customer.subscription.created/updated
       case 'customer.subscription.created':
       case 'customer.subscription.updated': {
@@ -61,25 +61,25 @@ Deno.serve(async (req) => {
         const customerId = subscription.customer as string
 
         let userId: string | null | undefined = subscription.metadata?.user_id
+        if (!userId) {
+          console.error('Webhook Error: No user ID found in subscription metadata.')
+          console.log('subscription', JSON.stringify(subscription, null, 2))
+          throw new Error('No user ID found in subscription metadata')
+        }
 
         // Fallback: Retrieve customer if metadata isn't directly on subscription event
-        if (!userId) {
-          try {
-            const customer = await StripeApi.getStripeClient().customers.retrieve(customerId) as Stripe.Customer
-            if (customer.deleted) {
-              console.warn(`Customer ${customerId} is deleted. Cannot retrieve user_id.`)
-            } else {
-              userId = customer.metadata?.user_id
-            }
-          } catch (custError) {
-            console.error(`Failed to retrieve Stripe customer ${customerId}:`, custError)
-          }
-        }
-
-        if (!userId) {
-          console.error(`Webhook Error: No user ID found in subscription metadata or retrieved customer for customer ID: ${customerId}`)
-          throw new Error('No user ID found for subscription')
-        }
+        // if (!userId) {
+        //   try {
+        //     const customer = await StripeApi.getStripeClient().customers.retrieve(customerId) as Stripe.Customer
+        //     if (customer.deleted) {
+        //       console.warn(`Customer ${customerId} is deleted. Cannot retrieve user_id.`)
+        //     } else {
+        //       userId = customer.metadata?.user_id
+        //     }
+        //   } catch (custError) {
+        //     console.error(`Failed to retrieve Stripe customer ${customerId}:`, custError)
+        //   }
+        // }
 
         const status = subscription.status === 'active' || subscription.status === 'trialing' ? 'active' : 'expired'
         const expirationDate = new Date(subscription.current_period_end * 1000)
@@ -104,17 +104,17 @@ Deno.serve(async (req) => {
         break
       }
 
-      case 'customer.subscription.deleted': {
-        const subscription = event.data.object as Stripe.Subscription
+      // case 'customer.subscription.deleted': {
+      //   const subscription = event.data.object as Stripe.Subscription
 
-        const { error: updateError } = await licenseRepo.updateLicense(subscription.id, 'expired')
+      //   const { error: updateError } = await licenseRepo.updateLicense(subscription.id, 'expired')
 
-        if (updateError) {
-          console.error('Supabase update error (sub deleted):', updateError)
-          console.warn(`Failed to update license status for deleted subscription ${subscription.id}. Maybe it didn't exist?`)
-        }
-        break
-      }
+      //   if (updateError) {
+      //     console.error('Supabase update error (sub deleted):', updateError)
+      //     console.warn(`Failed to update license status for deleted subscription ${subscription.id}. Maybe it didn't exist?`)
+      //   }
+      //   break
+      // }
     }
 
     return new Response(JSON.stringify({ received: true }), {
