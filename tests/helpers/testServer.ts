@@ -30,9 +30,6 @@ export const stopTestServer = async (): Promise<void> => {
         console.log('Test server stopped')
         resolve()
       })
-    } else {
-      // Even if no server, still clean up database
-      stopTestDatabase().then(() => resolve())
     }
   })
 }

@@ -17,10 +17,10 @@ beforeAll(async () => {
 
 })
 
-afterAll(() => {
+afterAll(async () => {
   console.log('🧪 Test environment stopped')
-  stopTestDatabase()
-  stopTestServer()
+  await stopTestDatabase()
+  await stopTestServer()
 })
 
 export {} 

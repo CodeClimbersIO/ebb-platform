@@ -38,6 +38,7 @@ let db: Knex | null = null
 
 const createDatabaseConnection = (): Knex => {
   if (process.env.NODE_ENV === 'test') {
+    console.log('Creating test database connection...')
     return knex(testConfig)
   } else {
     return knex(config)
