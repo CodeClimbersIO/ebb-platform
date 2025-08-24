@@ -1,4 +1,4 @@
-import knex from 'knex'
+import knex, { Knex } from 'knex'
 
 const config = {
   client: 'pg',
@@ -17,26 +17,36 @@ const config = {
     tableName: 'knex_migrations'
   }
 }
+const isCI = process.env.CI === 'true'
 
-// Create a function to get the database instance
-// This allows us to override it during testing
-const createDatabase = () => {
-  // Check if we're in test mode and have a test database available
-  if (process.env.NODE_ENV === 'test') {
-    try {
-      const testConfig = require('../tests/helpers/testDatabaseConfig')
-      const testDb = testConfig.getTestDatabase()
-      if (testDb) {
-        return testDb
-      }
-    } catch (error) {
-      // Test config not available, use normal database
-    }
-  }
-  
-  return knex(config)
+const testConfig = {
+  client: 'pg',
+  connection: {
+    host: 'localhost',
+    port: isCI ? 5432 : 5433,
+    user: 'test_user',
+    password: 'test_pass',
+    database: 'ebb_test'
+  },
+  pool: {
+    min: 1,
+    max: 5
+  },
 }
 
-export const db = createDatabase()
+let db: Knex | null = null
 
-export default db 
+export const createDatabase = (): Knex => {
+  if (process.env.NODE_ENV === 'test') {
+    return knex(testConfig)
+  } else {
+    return knex(config)
+  }
+}
+
+export const getDb = (): Knex => {
+  if(!db) {
+    db = createDatabase()
+  }
+  return db
+}

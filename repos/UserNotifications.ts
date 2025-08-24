@@ -1,6 +1,7 @@
-import { db } from '../config/database'
+import { getDb } from '../config/database'
 import type { ChannelNotificationRecord, NotificationChannel, NotificationType } from '../types/notifications'
 
+const db = getDb()
 export interface UserNotification {
   id: string
   user_id: string

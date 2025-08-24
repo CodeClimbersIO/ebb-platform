@@ -1,5 +1,6 @@
-import { db } from '../config/database.js'
+import { getDb } from '../config/database.js'
 
+const db = getDb()
 export interface SlackWorkspace {
   id: string
   team_id: string

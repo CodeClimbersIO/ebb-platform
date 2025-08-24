@@ -1,5 +1,7 @@
-import { db } from '../config/database'
+import { getDb } from '../config/database'
 import type { FriendWithDetails } from '../types/friends'
+
+const db = getDb()
 
 export interface FriendRequest {
   id: string;

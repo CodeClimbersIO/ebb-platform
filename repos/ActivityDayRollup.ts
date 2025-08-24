@@ -1,4 +1,4 @@
-import { db } from '../config/database'
+import { getDb } from '../config/database'
 
 export interface ActivityDayRollup {
   id: string
@@ -16,6 +16,8 @@ export interface ActivityUpdate {
   tag_name: string
   duration_minutes: number
 }
+
+const db = getDb()
 
 const tableName = 'activity_day_rollup'
 

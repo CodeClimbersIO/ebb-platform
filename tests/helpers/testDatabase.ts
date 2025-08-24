@@ -1,10 +1,18 @@
 import knex, { Knex } from 'knex'
-import { setTestDatabase, clearTestDatabase } from './testDatabaseConfig'
 import { readFileSync, readdirSync } from 'fs'
 import { join } from 'path'
 import { randomUUID } from 'crypto'
+import { createDatabase } from '../../config/database'
 
 let testDb: Knex | null = null
+
+export const setTestDatabase = (db: Knex): void => {
+  testDb = db
+}
+
+export const clearTestDatabase = (): void => {
+  testDb = null
+}
 
 export const startTestDatabase = async (): Promise<Knex> => {
   if (testDb) {
@@ -12,7 +20,6 @@ export const startTestDatabase = async (): Promise<Knex> => {
   }
 
   console.log('Connecting to test PostgreSQL database...')
-  
   // Set test environment
   process.env.NODE_ENV = 'test'
   
@@ -46,8 +53,8 @@ export const startTestDatabase = async (): Promise<Knex> => {
   // Run database setup
   await setupTestDatabase(testDb)
   
-  // Register the test database
-  setTestDatabase(testDb)
+  // Force the proxy to use this test database
+  createDatabase()
   
   console.log('Test PostgreSQL database ready with test schema')
   
@@ -56,8 +63,6 @@ export const startTestDatabase = async (): Promise<Knex> => {
 
 export const stopTestDatabase = async (): Promise<void> => {
   
-  // Reset test environment
-  delete process.env.NODE_ENV
   console.log('Deleting test environment')
   console.log(testDb)
   if (testDb) {
@@ -75,7 +80,9 @@ export const stopTestDatabase = async (): Promise<void> => {
 }
 
 export const getTestDatabase = (): Knex => {
+  console.log('getTestDatabase', testDb)
   if (!testDb) {
+    console.log('testDb not found')
     throw new Error('Test database not started. Call startTestDatabase() first.')
   }
   return testDb

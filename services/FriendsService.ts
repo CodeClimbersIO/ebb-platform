@@ -1,7 +1,9 @@
 import { FriendsRepo, type FriendRequest, type Friend, type FriendRequestWithUser } from '../repos/Friends.js'
 import { ApiError } from '../middleware/errorHandler.js'
-import { db } from '../config/database.js'
+import { getDb } from '../config/database.js'
 import type { Request } from 'express'
+
+const db = getDb()
 
 interface InviteFriendRequest {
   to_email: string;

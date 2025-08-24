@@ -1,4 +1,4 @@
-import { db } from '../config/database'
+import { getDb } from "../config/database";
 
 export type LicenseType = 'perpetual' | 'subscription' | 'free_trial';
 
@@ -21,6 +21,8 @@ export interface CreateLicenseData {
   stripe_customer_id?: string;
   stripe_payment_id?: string;
 }
+
+const db = getDb()
 
 const tableName = 'license'
 

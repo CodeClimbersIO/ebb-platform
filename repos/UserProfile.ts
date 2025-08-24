@@ -1,7 +1,9 @@
-import { db } from '../config/database'
+import { getDb } from '../config/database'
 import type { GeoLocationData } from '../services/GeoLocationService';
 
 export type OnlineStatus = 'online' | 'offline' | 'active' | 'flowing';
+
+const db = getDb()
 
 export interface UserProfile {
   id: number;

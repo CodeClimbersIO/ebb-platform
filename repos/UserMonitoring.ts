@@ -1,7 +1,7 @@
-import { db } from '../config/database'
+import { getDb   } from '../config/database'
 import type { NewUserRecord, PaidUserRecord, InactiveUserRecord } from '../types/jobs'
 
-const authUsersTable = 'auth.users'
+const db = getDb()
 
 /**
  * Get users created within the last specified minutes
