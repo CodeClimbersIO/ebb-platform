@@ -45,12 +45,24 @@ The application follows a layered architecture:
 3. **Repos** handle database queries and data persistence
 4. **Middleware** handles cross-cutting concerns (auth, errors)
 
+#### Service Conventions
+Services should follow these patterns:
+- Export individual functions as `const` declarations
+- Export a single service object at the end: `export const ServiceName = { func1, func2 }`
+- Import dependencies at the top (repos, config, middleware)
+- Use proper error handling with `ApiError` for business logic errors
+- Functions should be focused on single responsibilities
+- Use descriptive function names that clearly indicate their purpose
+
 ### Key Services
 - **JobQueueService**: Manages background jobs with BullMQ (user monitoring, notifications)
 - **GeoLocationService**: IP-based location detection using MaxMind database
 - **UserProfileService**: User data management and location tracking
 - **FriendsService**: Social features and friend connections
 - **NotificationService**: User notification system
+- **WebhookService**: Handles Stripe webhook event processing
+- **StripeService**: Stripe API interactions and checkout session creation
+- **LicenseService**: User license management and validation
 
 ### Authentication
 - Uses Supabase JWT tokens for API authentication

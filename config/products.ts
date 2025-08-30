@@ -32,14 +32,38 @@ export const PRODUCT_CONFIGS: Record<string, ProductConfig> = {
   // }
 }
 
-export const getProductConfig = (productId: string): ProductConfig | null => {
-  return PRODUCT_CONFIGS[productId] || null
+// Sandbox/Test mode product configurations
+export const SANDBOX_PRODUCT_CONFIGS: Record<string, ProductConfig> = {
+  'monthly_subscription': {
+    id: 'prod_SxoURnahKiKlhm', // Replace with your actual sandbox monthly product ID
+    name: 'Ebb Pro Monthly Subscription (Test)',
+    licenseType: 'subscription',
+    billingType: 'recurring'
+  },
+  'annual_subscription': {
+    id: 'prod_SxoT12GtQeAlIE', // Replace with your actual sandbox annual product ID
+    name: 'Ebb Pro Annual Subscription (Test)',
+    licenseType: 'subscription',
+    billingType: 'recurring'
+  }
 }
 
-export const isValidProductId = (productId: string): boolean => {
-  return productId in PRODUCT_CONFIGS
+export const getProductConfig = (licenseType: string, sandbox = false): ProductConfig | null => {
+  const configs = sandbox ? SANDBOX_PRODUCT_CONFIGS : PRODUCT_CONFIGS
+  return configs[licenseType] || null
 }
 
-export const getValidProductIds = (): string[] => {
-  return Object.keys(PRODUCT_CONFIGS)
+export const getProductConfigByProductId = (productId: string, sandbox = false): ProductConfig | null => {
+  const configs = sandbox ? SANDBOX_PRODUCT_CONFIGS : PRODUCT_CONFIGS
+  return Object.values(configs).find(config => config.id === productId) || null
+}
+
+export const isValidProductId = (licenseType: string, sandbox = false): boolean => {
+  const configs = sandbox ? SANDBOX_PRODUCT_CONFIGS : PRODUCT_CONFIGS
+  return licenseType in configs
+}
+
+export const getValidProductIds = (sandbox = false): string[] => {
+  const configs = sandbox ? SANDBOX_PRODUCT_CONFIGS : PRODUCT_CONFIGS
+  return Object.keys(configs)
 }

@@ -13,13 +13,13 @@ const createCheckout = async (req: Request, res: Response): Promise<void> => {
     throw new ApiError('User authentication required', 401)
   }
 
-  const { licenseType } = req.body
+  const { licenseType, sandbox } = req.body
 
   if(!licenseType) {
     throw new ApiError('licenseType is required', 422)
   }
 
-  const productConfig = getProductConfig(licenseType)
+  const productConfig = getProductConfig(licenseType, sandbox)
 
   if (!productConfig) {
     throw new ApiError(`Invalid licenseType: ${licenseType}`, 422)
@@ -33,7 +33,7 @@ const createCheckout = async (req: Request, res: Response): Promise<void> => {
   const checkoutUrl = await StripeService.createCheckoutSession({
     userId: req.user.id,
     userEmail: req.user.email,
-    productId: productConfig.id
+    productConfig
   })
 
   res.json({
