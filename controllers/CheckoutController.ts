@@ -13,13 +13,13 @@ const createCheckout = async (req: Request, res: Response): Promise<void> => {
     throw new ApiError('User authentication required', 401)
   }
 
-  const { licenseType, sandbox } = req.body
+  const { licenseType } = req.body
 
   if(!licenseType) {
     throw new ApiError('licenseType is required', 422)
   }
 
-  const productConfig = getProductConfig(licenseType, sandbox)
+  const productConfig = getProductConfig(licenseType)
 
   if (!productConfig) {
     throw new ApiError(`Invalid licenseType: ${licenseType}`, 422)

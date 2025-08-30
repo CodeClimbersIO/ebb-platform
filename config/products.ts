@@ -48,22 +48,26 @@ export const SANDBOX_PRODUCT_CONFIGS: Record<string, ProductConfig> = {
   }
 }
 
-export const getProductConfig = (licenseType: string, sandbox = false): ProductConfig | null => {
-  const configs = sandbox ? SANDBOX_PRODUCT_CONFIGS : PRODUCT_CONFIGS
+const isSandboxMode = (): boolean => {
+  return process.env.STRIPE_SANDBOX === 'true'
+}
+
+export const getProductConfig = (licenseType: string): ProductConfig | null => {
+  const configs = isSandboxMode() ? SANDBOX_PRODUCT_CONFIGS : PRODUCT_CONFIGS
   return configs[licenseType] || null
 }
 
-export const getProductConfigByProductId = (productId: string, sandbox = false): ProductConfig | null => {
-  const configs = sandbox ? SANDBOX_PRODUCT_CONFIGS : PRODUCT_CONFIGS
+export const getProductConfigByProductId = (productId: string): ProductConfig | null => {
+  const configs = isSandboxMode() ? SANDBOX_PRODUCT_CONFIGS : PRODUCT_CONFIGS
   return Object.values(configs).find(config => config.id === productId) || null
 }
 
-export const isValidProductId = (licenseType: string, sandbox = false): boolean => {
-  const configs = sandbox ? SANDBOX_PRODUCT_CONFIGS : PRODUCT_CONFIGS
+export const isValidProductId = (licenseType: string): boolean => {
+  const configs = isSandboxMode() ? SANDBOX_PRODUCT_CONFIGS : PRODUCT_CONFIGS
   return licenseType in configs
 }
 
-export const getValidProductIds = (sandbox = false): string[] => {
-  const configs = sandbox ? SANDBOX_PRODUCT_CONFIGS : PRODUCT_CONFIGS
+export const getValidProductIds = (): string[] => {
+  const configs = isSandboxMode() ? SANDBOX_PRODUCT_CONFIGS : PRODUCT_CONFIGS
   return Object.keys(configs)
 }

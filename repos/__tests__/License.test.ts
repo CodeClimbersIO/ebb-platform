@@ -94,13 +94,13 @@ describe('LicenseRepo', () => {
       expect(new Date(result?.expiration_date || '')).toEqual(futureExpiration)
     })
   })
-  // describe('upsertLicense', () => {
-  //   it('should upsert a license', async () => {
-  //     const license = await LicenseRepo.upsertLicense({
-  //       user_id: user1Id,
-  //       license_type: 'subscription',
-  //       status: 'active',
-  //       expiration_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
-  //     })
-  // })
+
+  describe('updateLicenseByStripePaymentId', () => {
+    it('should update a license', async () => {
+      const result = await LicenseRepo.updateLicenseByStripePaymentId('pi_test123', 'expired')
+      expect(result).not.toBeNull()
+      expect(result?.user_id).toBe(user1Id)
+      expect(result?.status).toBe('expired')
+    })
+  })
 })

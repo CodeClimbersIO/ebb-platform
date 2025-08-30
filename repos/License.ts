@@ -9,7 +9,7 @@ export interface License {
   license_type: LicenseType;
   status?: LicenseStatus;
   purchase_date: Date;
-  expiration_date: Date;
+  expiration_date?: Date;
   stripe_customer_id?: string;
   stripe_payment_id?: string;
   created_at: Date;
@@ -20,7 +20,7 @@ export interface CreateLicenseData {
   user_id: string;
   license_type: LicenseType;
   status?: LicenseStatus;
-  expiration_date: Date;
+  expiration_date?: Date;
   purchase_date?: Date;
   stripe_customer_id?: string;
   stripe_payment_id?: string;
@@ -86,36 +86,7 @@ const deleteLicense = async (userId: string): Promise<boolean> => {
   return deletedCount > 0
 }
 
-const upsertLicense = async (data: UpsertLicenseData): Promise<License> => {
-  const existingLicense = await getActiveLicenseByUserId(data.user_id)
-  
-  if (existingLicense) {
-    const [updated] = await db(tableName)
-      .where({ user_id: data.user_id })
-      .update({
-        license_type: data.license_type,
-        status: data.status,
-        purchase_date: data.purchase_date,
-        expiration_date: data.expiration_date,
-        stripe_customer_id: data.stripe_customer_id,
-        stripe_payment_id: data.stripe_payment_id,
-        updated_at: new Date()
-      })
-      .returning('*')
-    
-    return updated
-  } else {
-    return createLicense({
-      user_id: data.user_id,
-      license_type: data.license_type,
-      status: data.status,
-      purchase_date: data.purchase_date,
-      expiration_date: data.expiration_date || new Date(),
-      stripe_customer_id: data.stripe_customer_id,
-      stripe_payment_id: data.stripe_payment_id,
-    })
-  }
-}
+
 
 const updateLicenseByStripePaymentId = async (stripePaymentId: string, status: LicenseStatus): Promise<License | null> => {
   const [license] = await db(tableName)
@@ -134,6 +105,5 @@ export const LicenseRepo = {
   createLicense,
   updateLicense,
   deleteLicense,
-  upsertLicense,
   updateLicenseByStripePaymentId,
 }
