@@ -28,34 +28,6 @@ describe('LicenseRepo', () => {
     defaultLicense = licenseData
   })
 
-
-  describe('getLicenseByUserId', () => {
-    it('should return null when no license exists for user', async () => {
-      const userId = randomUUID()
-      const result = await LicenseRepo.getLicensesByUserId(userId)
-      
-      expect(result).toEqual([])
-    })
-
-    it('should return license when user has a license', async () => {
-      
-      const result = await LicenseRepo.getLicensesByUserId(user1Id)
-      
-      expect(result.length).toBe(1)
-      const [license] = result
-      expect(license).toBeDefined()
-      expect(license?.user_id).toBe(user1Id)
-      expect(license?.license_type).toBe(defaultLicense.license_type)
-      expect(license?.status).toBe(defaultLicense.status as LicenseStatus)
-      expect(license?.stripe_customer_id).toBe(defaultLicense.stripe_customer_id as string)
-    })
-
-    it('should handle database errors gracefully', async () => {
-      // Test with invalid UUID format
-      expect(() => LicenseRepo.getLicensesByUserId('invalid-uuid')).toThrow()
-    })
-  })
-
   describe('getActiveLicenseByUserId', () => {
     it('should return null when no active license exists for user', async () => {
       const userId = randomUUID()
@@ -75,6 +47,51 @@ describe('LicenseRepo', () => {
       await db('license').update({ status: 'expired' }).where({ user_id: user1Id })
       const result = await LicenseRepo.getActiveLicenseByUserId(user1Id)
       expect(result).toBeNull()
+    })
+
+    it('should filter out expired licenses even if status is active', async () => {
+      const db = getDb()
+      const expiredUserId = randomUUID()
+      await db('auth.users').insert({ id: expiredUserId, email: 'expired@test.com' })
+      
+      // Create a license with active status but expired date
+      await db('license').insert({
+        id: randomUUID(),
+        user_id: expiredUserId,
+        license_type: 'subscription',
+        status: 'active',
+        purchase_date: new Date(),
+        expiration_date: new Date(Date.now() - 24 * 60 * 60 * 1000), // 1 day ago
+        created_at: new Date(),
+        updated_at: new Date()
+      })
+
+      const result = await LicenseRepo.getActiveLicenseByUserId(expiredUserId)
+      expect(result).toBeNull()
+    })
+
+    it('should return license that expires in the future', async () => {
+      const db = getDb()
+      const futureUserId = randomUUID()
+      await db('auth.users').insert({ id: futureUserId, email: 'future@test.com' })
+      
+      // Create a license with active status and future expiration
+      const futureExpiration = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) // 7 days from now
+      await db('license').insert({
+        id: randomUUID(),
+        user_id: futureUserId,
+        license_type: 'subscription',
+        status: 'active',
+        purchase_date: new Date(),
+        expiration_date: futureExpiration,
+        created_at: new Date(),
+        updated_at: new Date()
+      })
+
+      const result = await LicenseRepo.getActiveLicenseByUserId(futureUserId)
+      expect(result).not.toBeNull()
+      expect(result?.user_id).toBe(futureUserId)
+      expect(new Date(result?.expiration_date || '')).toEqual(futureExpiration)
     })
   })
   // describe('upsertLicense', () => {

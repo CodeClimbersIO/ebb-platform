@@ -3,7 +3,7 @@ import type { Request, Response } from 'express'
 import { UserProfileService } from '../services/UserProfileService.js'
 import { AuthMiddleware } from '../middleware/auth.js'
 import { asyncHandler, ApiError } from '../middleware/errorHandler.js'
-import { LicenseRepo } from '../repos/License.js'
+import { LicenseService } from '../services/LicenseService.js'
 
 const router = Router()
 
@@ -47,19 +47,7 @@ const startTrial = async (req: Request, res: Response): Promise<void> => {
     throw new ApiError('User authentication required', 401)
   }
 
-  const existingLicense = await LicenseRepo.getLicenseByUserId(req.user.id)
-  if (existingLicense) {
-    throw new ApiError('User already has a license', 422)
-  }
-
-  const expirationDate = new Date()
-  expirationDate.setDate(expirationDate.getDate() + 14)
-
-  await LicenseRepo.createLicense({
-    user_id: req.user.id,
-    license_type: 'free_trial',
-    expiration_date: expirationDate
-  })
+  await LicenseService.startFreeTrial(req.user.id)
 
   res.json({
     success: true,

@@ -31,7 +31,7 @@ export interface UpsertLicenseData {
   license_type: LicenseType;
   status: LicenseStatus;
   purchase_date: Date;
-  expiration_date: Date;
+  expiration_date?: Date;
   stripe_customer_id?: string;
   stripe_payment_id?: string;
 }
@@ -40,25 +40,11 @@ const db = getDb()
 
 const tableName = 'license'
 
-const getLicenseByUserId = async (userId: string): Promise<License | null> => {
-  const result = await db(tableName)
-    .where({ user_id: userId })
-    .first('*')
-  
-  return result || null
-}
-
-const getLicensesByUserId = async (userId: string): Promise<License[]> => {
-  const result = await db(tableName)
-    .where({ user_id: userId })
-    .select('*')
-  
-  return result || []
-}
-
 const getActiveLicenseByUserId = async (userId: string): Promise<License | null> => {
   const result = await db(tableName)
     .where({ user_id: userId, status: 'active' })
+    .where('expiration_date', '>', new Date())
+    .orderBy('expiration_date', 'desc')
     .first('*')
   
   return result || null
@@ -101,7 +87,7 @@ const deleteLicense = async (userId: string): Promise<boolean> => {
 }
 
 const upsertLicense = async (data: UpsertLicenseData): Promise<License> => {
-  const existingLicense = await getLicenseByUserId(data.user_id)
+  const existingLicense = await getActiveLicenseByUserId(data.user_id)
   
   if (existingLicense) {
     const [updated] = await db(tableName)
@@ -119,12 +105,12 @@ const upsertLicense = async (data: UpsertLicenseData): Promise<License> => {
     
     return updated
   } else {
-    return await createLicense({
+    return createLicense({
       user_id: data.user_id,
       license_type: data.license_type,
       status: data.status,
       purchase_date: data.purchase_date,
-      expiration_date: data.expiration_date,
+      expiration_date: data.expiration_date || new Date(),
       stripe_customer_id: data.stripe_customer_id,
       stripe_payment_id: data.stripe_payment_id,
     })
@@ -144,7 +130,6 @@ const updateLicenseByStripePaymentId = async (stripePaymentId: string, status: L
 }
 
 export const LicenseRepo = {
-  getLicensesByUserId,
   getActiveLicenseByUserId,
   createLicense,
   updateLicense,
