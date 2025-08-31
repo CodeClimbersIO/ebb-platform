@@ -71,7 +71,26 @@ const createCheckoutSession = async (params: CreateCheckoutSessionParams): Promi
   return session.url
 }
 
+const cancelSubscription = async (subscriptionId: string): Promise<Stripe.Subscription> => {
+  const stripe = getStripeClient()
+  
+  try {
+    // Cancel subscription at period end (graceful cancellation)
+    const subscription = await stripe.subscriptions.update(subscriptionId, {
+      cancel_at_period_end: true
+    })
+    
+    console.log(`Subscription ${subscriptionId} marked for cancellation at period end`)
+    return subscription
+  } catch (error) {
+    console.error(`Failed to cancel subscription ${subscriptionId}:`, error)
+    throw new ApiError(`Failed to cancel subscription: ${error}`, 500)
+  }
+}
+
+
 export const StripeService = {
   createCheckoutSession,
+  cancelSubscription,
   getStripeClient
 }

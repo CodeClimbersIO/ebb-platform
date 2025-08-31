@@ -8,6 +8,7 @@ import { JobQueueController } from './controllers/JobQueueController'
 import { SlackController } from './controllers/SlackController'
 import { NotificationTestController } from './controllers/NotificationTestController'
 import { CheckoutController } from './controllers/CheckoutController'
+import { LicenseController } from './controllers/LicenseController'
 import { WebhookController } from './controllers/WebhookController'
 import { GeoLocationService } from './services/GeoLocationService'
 import { jobQueueService } from './services/JobQueueService'
@@ -55,6 +56,7 @@ app.use('/api/jobs', JobQueueController.router)
 app.use('/api/slack', SlackController.router)
 app.use('/api/notifications', NotificationTestController.router)
 app.use('/api/checkout', CheckoutController.router)
+app.use('/api/license', LicenseController.router)
 
 // Public API Routes (no authentication required)
 app.use('/api/marketing', MarketingController.router)
@@ -195,6 +197,7 @@ export const startServer = async (port: number = PORT) => {
       console.log(`⚙️  Job Queue API (auth required): http://localhost:${port}/api/jobs`)
       console.log(`💬 Slack API (auth required): http://localhost:${port}/api/slack`)
       console.log(`💳 Checkout API (auth required): http://localhost:${port}/api/checkout`)
+      console.log(`🎫 License API (auth required): http://localhost:${port}/api/license`)
       console.log(`🔗 Webhooks API (public): http://localhost:${port}/api/webhooks`)
       console.log(`⚙️  Job Queue: User monitoring jobs scheduled (requires Redis)`)
       console.log('🔐 Authentication: Supabase JWT required for /api routes (except marketing, webhooks, and slack/events)')

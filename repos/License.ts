@@ -50,6 +50,14 @@ const getActiveLicenseByUserId = async (userId: string): Promise<License | null>
   return result || null
 }
 
+const getFreeTrialLicenseByUserId = async (userId: string): Promise<License | null> => {
+  const result = await db(tableName)
+    .where({ user_id: userId, license_type: 'free_trial' })
+    .first('*')
+  
+  return result || null
+}
+
 const createLicense = async (data: CreateLicenseData): Promise<License> => {
   const [license] = await db(tableName)
     .insert({
@@ -102,6 +110,7 @@ const updateLicenseByStripePaymentId = async (stripePaymentId: string, status: L
 
 export const LicenseRepo = {
   getActiveLicenseByUserId,
+  getFreeTrialLicenseByUserId,
   createLicense,
   updateLicense,
   deleteLicense,
