@@ -43,8 +43,14 @@ const tableName = 'license'
 const getActiveLicenseByUserId = async (userId: string): Promise<License | null> => {
   const result = await db(tableName)
     .where({ user_id: userId, status: 'active' })
-    .where('expiration_date', '>', new Date())
-    .orderBy('expiration_date', 'desc')
+    .where(function() {
+      this.whereNull('expiration_date')
+        .orWhere('expiration_date', '>', new Date())
+    })
+    .orderBy([
+      { column: 'expiration_date', order: 'desc', nulls: 'first' },
+      { column: 'created_at', order: 'desc' }
+    ])
     .first('*')
   
   return result || null

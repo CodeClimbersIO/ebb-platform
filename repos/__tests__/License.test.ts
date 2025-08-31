@@ -41,6 +41,14 @@ describe('LicenseRepo', () => {
       expect(result?.user_id).toBe(user1Id)
       expect(result?.status).toBe('active')
     })
+    it('should return the active license when user has an active license and expiration date is null', async () => {
+      const db = getDb()
+      await db('license').update({ expiration_date: null }).where({ user_id: user1Id })
+      const result = await LicenseRepo.getActiveLicenseByUserId(user1Id)
+      expect(result).toBeDefined()
+      expect(result?.user_id).toBe(user1Id)
+      expect(result?.status).toBe('active')
+    })
 
     it('should filter out inactive licenses', async () => {
       const db = getDb()
@@ -94,6 +102,7 @@ describe('LicenseRepo', () => {
       expect(new Date(result?.expiration_date || '')).toEqual(futureExpiration)
     })
   })
+  
 
   describe('updateLicenseByStripePaymentId', () => {
     it('should update a license', async () => {
