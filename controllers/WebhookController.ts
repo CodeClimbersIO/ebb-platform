@@ -36,7 +36,7 @@ const handleStripeWebhook = async (req: Request, res: Response): Promise<void> =
 
     // what events occur during the subscription lifecycle for someone purchasing a subscription (annual or monthly)
     // 1. customer.subscription.created
-    // 2. customer.subscription.updated
+    // 2. invoice.payment_failed
     // 3. customer.subscription.deleted
 
     // can a user cancel their own subscription through stripe or does it have to be done by the admin?
@@ -49,9 +49,10 @@ const handleStripeWebhook = async (req: Request, res: Response): Promise<void> =
         break
       }
       
-      case 'customer.subscription.updated': {
-        const subscription = event.data.object as Stripe.Subscription
-        await WebhookService.handleSubscriptionUpdated(subscription)
+      case 'invoice.payment_failed': {
+        const invoice = event.data.object as Stripe.Invoice
+        console.log('invoice.payment_failed', invoice.id)
+        await WebhookService.handleInvoicePaymentFailed(invoice)
         break
       }
       

@@ -66,6 +66,8 @@ export class DiscordNotificationProvider implements NotificationProvider {
         return this.formatInactiveUserNotification(payload)
       case 'weekly_report':
         return this.formatWeeklyReportNotification(payload)
+      case 'payment_failed':
+        return this.formatPaymentFailedNotification(payload)
       default:
         return this.formatGenericNotification(payload)
     }
@@ -193,6 +195,48 @@ export class DiscordNotificationProvider implements NotificationProvider {
         text: 'Ebb Platform Notifications'
       },
       timestamp: new Date().toISOString()
+    }
+
+    return {
+      embeds: [embed],
+      username: 'Ebb Notifications',
+    }
+  }
+
+  private formatPaymentFailedNotification(payload: NotificationPayload): DiscordWebhookPayload {
+    const embed: DiscordEmbed = {
+      title: '❌ Payment Failed',
+      description: `Payment failed for customer`,
+      color: 0xFF0000, // Red color
+      fields: [
+        {
+          name: '📧 Customer',
+          value: payload.user.email,
+          inline: true
+        },
+        {
+          name: '💰 Amount Due',
+          value: payload.data?.formatted_amount || 'Unknown',
+          inline: true
+        },
+        {
+          name: '🧾 Invoice',
+          value: payload.data?.invoice_id || 'Unknown',
+          inline: true
+        }
+      ],
+      footer: {
+        text: 'Ebb Platform Notifications'
+      },
+      timestamp: new Date().toISOString()
+    }
+
+    if (payload.data?.customer_name) {
+      embed.fields?.push({
+        name: '👤 Customer Name',
+        value: payload.data.customer_name,
+        inline: true
+      })
     }
 
     return {

@@ -1,18 +1,21 @@
 import { LicenseRepo, type LicenseStatus } from '../repos/License.js'
 import { getProductConfigByProductId } from '../config/products.js'
 import { ApiError } from '../middleware/errorHandler.js'
+import { EmailService } from './EmailService.js'
+import { NotificationEngine } from './NotificationEngine.js'
+import { getNotificationConfig } from '../config/notifications.js'
 import type Stripe from 'stripe'
+
+// Shared notification engine instance
+const getNotificationEngine = (): NotificationEngine => {
+  const config = getNotificationConfig()
+  return new NotificationEngine(config)
+}
 
 const handleCheckoutSessionCompleted = async (session: Stripe.Checkout.Session): Promise<void> => {
   const customerId = session.customer as string
   const userId = session.client_reference_id || session.metadata?.user_id
   const productId = session.metadata?.product_id
-
-  console.log('handleCheckoutSessionCompleted', session)
-  console.log('session', JSON.stringify(session, null, 2))
-  console.log('customerId', customerId)
-  console.log('userId', userId)
-  console.log('productId', productId)
   
   if (!userId) {
     console.error('Webhook Error: No user ID found in checkout session.')
@@ -45,37 +48,6 @@ const handleCheckoutSessionCompleted = async (session: Stripe.Checkout.Session):
   }
 }
 
-const handleSubscriptionUpdated = async (subscription: Stripe.Subscription): Promise<void> => {
-  const customerId = subscription.customer as string
-  let userId: string | null | undefined = subscription.metadata?.user_id
-
-  if (!userId) {
-    console.warn(`No user_id found in subscription metadata for subscription ${subscription.id}`)
-    throw new ApiError('No user ID found for subscription', 422)
-  }
-
-  const firstItem = subscription.items.data[0]
-  if (!firstItem || !firstItem.price?.product) {
-    console.error('Webhook Error: No product found in subscription items.')
-    throw new ApiError('No product found in subscription', 422)
-  }
-
-  const productId = typeof firstItem.price.product === 'string' 
-    ? firstItem.price.product 
-    : firstItem.price.product.id
-
-  const productConfig = getProductConfigByProductId(productId)
-  if (!productConfig) {
-    console.error(`Webhook Error: Unknown product ID in subscription: ${productId}`)
-    throw new ApiError(`Unknown product ID in subscription: ${productId}`, 422)
-  }
-
-  const status = subscription.status === 'active' || subscription.status === 'trialing' ? 'active' : 'expired'
-
-  await LicenseRepo.updateLicenseByStripePaymentId(subscription.id, status as LicenseStatus)
-
-  console.log(`License updated for user ${userId} with subscription ${subscription.id}, status: ${status}`)
-}
 
 const handleSubscriptionDeleted = async (subscription: Stripe.Subscription): Promise<void> => {
   const updatedLicense = await LicenseRepo.updateLicenseByStripePaymentId(subscription.id, 'expired')
@@ -87,8 +59,57 @@ const handleSubscriptionDeleted = async (subscription: Stripe.Subscription): Pro
   }
 }
 
+const handleInvoicePaymentFailed = async (invoice: Stripe.Invoice): Promise<void> => {
+  console.log('Payment failed for invoice:', invoice.id)
+  
+  // Send email notification if customer email is available
+  if (invoice.customer_email) {
+    try {
+      await EmailService.sendPaymentFailureEmail({
+        customerEmail: invoice.customer_email,
+        customerName: invoice.customer_name as string | undefined,
+        amountDue: invoice.amount_due,
+        currency: invoice.currency
+      })
+
+      console.log(`Payment failure email sent to ${invoice.customer_email}`)
+    } catch (error) {
+      console.error('Failed to send payment failure email:', error)
+      // Don't throw - we don't want email failures to break webhook processing
+    }
+  } else {
+    console.warn('No customer email found for failed payment, skipping email notification')
+  }
+
+  // Send Discord notification using NotificationEngine
+  try {
+    const notificationEngine = getNotificationEngine()
+    
+    await notificationEngine.sendNotification({
+      type: 'payment_failed',
+      user: {
+        id: invoice.customer as string || 'unknown',
+        email: invoice.customer_email || 'No email available'
+      },
+      referenceId: `payment_failed_${invoice.id}`,
+      data: {
+        invoice_id: invoice.id,
+        amount_due: invoice.amount_due,
+        currency: invoice.currency,
+        customer_name: invoice.customer_name,
+        formatted_amount: `${invoice.currency.toUpperCase()} $${(invoice.amount_due / 100).toFixed(2)}`
+      }
+    }, ['discord'])
+
+    console.log(`Discord notification sent for payment failure: ${invoice.id}`)
+  } catch (error) {
+    console.error('Failed to send Discord notification for payment failure:', error)
+    // Don't throw - we don't want Discord failures to break webhook processing
+  }
+}
+
 export const WebhookService = {
   handleCheckoutSessionCompleted,
-  handleSubscriptionUpdated,
   handleSubscriptionDeleted,
+  handleInvoicePaymentFailed,
 }
