@@ -26,7 +26,7 @@ const createCheckout = async (req: Request, res: Response): Promise<void> => {
   }
 
   const existingLicense = await LicenseService.getActiveLicense(req.user.id)
-  if (existingLicense) {
+  if (existingLicense && existingLicense.license_type !== 'free_trial') {
     throw new ApiError('User already has an active license', 422)
   }
 

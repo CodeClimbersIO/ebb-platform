@@ -37,13 +37,32 @@ const handleCheckoutSessionCompleted = async (session: Stripe.Checkout.Session):
   if (session.mode === 'subscription') {
     // if we have a free trial license, we need to update it to end now
     const existingTrialLicense = await LicenseRepo.getFreeTrialLicenseByUserId(userId)
+    console.log('Existing trial license:', existingTrialLicense)
     if (existingTrialLicense) {
+      console.log('Updating existing trial license')
       await LicenseRepo.updateLicense(existingTrialLicense.id, {
-        status: 'expired',
-        expiration_date: new Date(),
+        status: 'active',
+        license_type: productConfig.licenseType,
+        stripe_payment_id: session.subscription as string,
         updated_at: new Date()
       })
+      return
     }
+
+    console.log('Checking for existing subscription license')
+    const existingSubscriptionLicense = await LicenseRepo.getExistingSubscriptionLicenseByUserId(userId)
+    console.log('Existing subscription license:', existingSubscriptionLicense)
+    if (existingSubscriptionLicense) {
+      console.log('Updating existing subscription license')
+      await LicenseRepo.updateLicense(existingSubscriptionLicense.id, {
+        status: 'active',
+        stripe_payment_id: session.subscription as string,
+        updated_at: new Date()
+      })
+      console.log('Existing subscription license updated')
+      return
+    }
+    console.log('Creating new subscription license')
     await LicenseRepo.createLicense({
       user_id: userId,
       status: 'active',
