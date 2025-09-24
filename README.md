@@ -16,4 +16,6 @@ bun dev
 ## Getting Started
 - copy .env.example to .env
 - get values for .env files (supabase for example)
-= 
+
+## Documentation
+- [Stripe Testing Guide](./docs/stripe-testing.md) - How to test Stripe integrations with real responses

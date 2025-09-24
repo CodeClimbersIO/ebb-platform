@@ -183,6 +183,16 @@ export const processPaidUserCheck = async (job: Job<PaidUserCheckJobData>): Prom
   try {
     console.log('💳 Processing paid user check job...')
     
+    // Skip notifications in sandbox/development mode
+    if (process.env.STRIPE_SANDBOX === 'true') {
+      console.log('⏭️  Skipping paid user notifications in sandbox mode')
+      return {
+        success: true,
+        message: 'Skipped notifications in sandbox mode',
+        processedAt: new Date()
+      }
+    }
+    
     // Get users who upgraded to paid in the last 10 minutes
     const paidUsers = await UserMonitoringRepo.getPaidUsers(10)
     console.log(`📊 Found ${paidUsers.length} recently paid users`)

@@ -1,6 +1,7 @@
 import { FriendsRepo, type FriendRequest, type Friend, type FriendRequestWithUser } from '../repos/Friends.js'
 import { ApiError } from '../middleware/errorHandler.js'
 import { getDb } from '../config/database.js'
+import { EmailService } from './EmailService.js'
 import type { Request } from 'express'
 
 const db = getDb()
@@ -15,45 +16,12 @@ interface AcceptRejectFriendRequest {
 }
 
 const sendFriendRequestEmail = async (toEmail: string, fromUserEmail: string, friendRequestId: string, existingUser: boolean = false): Promise<void> => {
-  try {
-    const loopsApiKey = process.env.LOOPS_API_KEY
-    if (!loopsApiKey) {
-      console.error('LOOPS_API_KEY not configured, skipping email send')
-      return
-    }
-
-    const payload = {
-      transactionalId: existingUser ? 'cmc3u8e020700z00iason0m0f' : 'cmc6k356p2tf0zq0jg9y0atvr', // Your friend request template ID
-      email: toEmail,
-      dataVariables: {
-        to_email: toEmail,
-        from_email: fromUserEmail,
-        request_id: friendRequestId
-      }
-    }
-
-    const response = await fetch('https://app.loops.so/api/v1/transactional', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${loopsApiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(payload)
-    })
-
-    if (!response.ok) {
-      const errorText = await response.text()
-      console.error('Failed to send email via Loops:', response.status, errorText)
-      return
-    }
-
-    const result = await response.json()
-    console.log('Friend request email sent successfully via Loops:', result)
-    
-  } catch (error) {
-    console.error('Failed to send friend request email:', error)
-    // Don't throw here - we don't want email failures to prevent friend request creation
-  }
+  await EmailService.sendFriendRequestEmail({
+    toEmail,
+    fromEmail: fromUserEmail,
+    requestId: friendRequestId,
+    existingUser
+  })
 }
 
 const inviteFriend = async (req: Request): Promise<FriendRequest> => {

@@ -66,6 +66,12 @@ export class DiscordNotificationProvider implements NotificationProvider {
         return this.formatInactiveUserNotification(payload)
       case 'weekly_report':
         return this.formatWeeklyReportNotification(payload)
+      case 'payment_failed':
+        return this.formatPaymentFailedNotification(payload)
+      case 'checkout_completed':
+        return this.formatCheckoutCompletedNotification(payload)
+      case 'subscription_cancelled':
+        return this.formatSubscriptionCancelledNotification(payload)
       default:
         return this.formatGenericNotification(payload)
     }
@@ -193,6 +199,167 @@ export class DiscordNotificationProvider implements NotificationProvider {
         text: 'Ebb Platform Notifications'
       },
       timestamp: new Date().toISOString()
+    }
+
+    return {
+      embeds: [embed],
+      username: 'Ebb Notifications',
+    }
+  }
+
+  private formatPaymentFailedNotification(payload: NotificationPayload): DiscordWebhookPayload {
+    const embed: DiscordEmbed = {
+      title: '❌ Payment Failed',
+      description: `Payment failed for customer`,
+      color: 0xFF0000, // Red color
+      fields: [
+        {
+          name: '📧 Customer',
+          value: payload.user.email,
+          inline: true
+        },
+        {
+          name: '💰 Amount Due',
+          value: payload.data?.formatted_amount || 'Unknown',
+          inline: true
+        },
+        {
+          name: '🧾 Invoice',
+          value: payload.data?.invoice_id || 'Unknown',
+          inline: true
+        }
+      ],
+      footer: {
+        text: 'Ebb Platform Notifications'
+      },
+      timestamp: new Date().toISOString()
+    }
+
+    if (payload.data?.customer_name) {
+      embed.fields?.push({
+        name: '👤 Customer Name',
+        value: payload.data.customer_name,
+        inline: true
+      })
+    }
+
+    return {
+      embeds: [embed],
+      username: 'Ebb Notifications',
+    }
+  }
+
+  private formatCheckoutCompletedNotification(payload: NotificationPayload): DiscordWebhookPayload {
+    const embed: DiscordEmbed = {
+      title: '💳 Checkout Completed!',
+      description: `A user has successfully completed their checkout`,
+      color: 0x00C851, // Success green color
+      fields: [
+        {
+          name: '👤 User ID',
+          value: payload.user.id,
+          inline: true
+        },
+        {
+          name: '🎫 License Type',
+          value: payload.data?.license_type || 'Unknown',
+          inline: true
+        },
+        {
+          name: '🆔 Session ID',
+          value: payload.data?.session_id || 'Unknown',
+          inline: false
+        }
+      ],
+      footer: {
+        text: 'Ebb Platform Notifications'
+      },
+      timestamp: new Date().toISOString()
+    }
+
+    // Add optional fields if available
+    if (payload.data?.subscription_id) {
+      embed.fields?.push({
+        name: '📋 Subscription ID',
+        value: payload.data.subscription_id,
+        inline: true
+      })
+    }
+
+    if (payload.data?.amount_total && payload.data?.currency) {
+      const amount = (payload.data.amount_total / 100).toFixed(2)
+      embed.fields?.push({
+        name: '💰 Amount',
+        value: `${payload.data.currency.toUpperCase()} $${amount}`,
+        inline: true
+      })
+    }
+
+    if (payload.data?.product_id) {
+      embed.fields?.push({
+        name: '🏷️ Product ID',
+        value: payload.data.product_id,
+        inline: true
+      })
+    }
+
+    return {
+      embeds: [embed],
+      username: 'Ebb Notifications',
+    }
+  }
+
+  private formatSubscriptionCancelledNotification(payload: NotificationPayload): DiscordWebhookPayload {
+    const embed: DiscordEmbed = {
+      title: '❌ Subscription Cancelled',
+      description: `A user's subscription has been cancelled`,
+      color: 0xFF4444, // Warning red color
+      fields: [
+        {
+          name: '👤 User ID',
+          value: payload.user.id,
+          inline: true
+        },
+        {
+          name: '🗓️ Cancelled At',
+          value: payload.data?.cancelled_at ? `<t:${Math.floor(new Date(payload.data.cancelled_at).getTime() / 1000)}:R>` : 'Just now',
+          inline: true
+        },
+        {
+          name: '📋 Subscription ID',
+          value: payload.data?.subscription_id || 'Unknown',
+          inline: false
+        }
+      ],
+      footer: {
+        text: 'Ebb Platform Notifications'
+      },
+      timestamp: new Date().toISOString()
+    }
+
+    // Add optional fields if available
+    if (payload.data?.license_id) {
+      embed.fields?.push({
+        name: '🎫 License ID',
+        value: payload.data.license_id,
+        inline: true
+      })
+    }
+
+    if (payload.data?.customer_id) {
+      embed.fields?.push({
+        name: '🏪 Customer ID',
+        value: payload.data.customer_id,
+        inline: true
+      })
+    }
+
+    if (payload.data?.status) {
+      embed.fields?.push({
+        name: '📊 Status',
+        value: payload.data.status,
+        inline: true
+      })
     }
 
     return {
