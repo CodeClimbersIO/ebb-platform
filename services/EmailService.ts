@@ -50,19 +50,19 @@ const sendLoopsEmail = async (payload: LoopsEmailPayload): Promise<void> => {
   }
 }
 
-const sendPaymentFailureEmail = async (data: PaymentFailureEmailData): Promise<void> => {
-  const payload: LoopsEmailPayload = {
-    transactionalId: 'YOUR_PAYMENT_FAILURE_TEMPLATE_ID', // Replace with your Loops template ID
-    email: data.customerEmail,
-    dataVariables: {
-      customer_email: data.customerEmail,
-      customer_name: data.customerName || '',
-      formatted_amount: `${data.currency.toUpperCase()} $${(data.amountDue / 100).toFixed(2)}`
-    }
-  }
+// const sendPaymentFailureEmail = async (data: PaymentFailureEmailData): Promise<void> => {
+//   const payload: LoopsEmailPayload = {
+//     transactionalId: 'YOUR_PAYMENT_FAILURE_TEMPLATE_ID', // Replace with your Loops template ID
+//     email: data.customerEmail,
+//     dataVariables: {
+//       customer_email: data.customerEmail,
+//       customer_name: data.customerName || '',
+//       formatted_amount: `${data.currency.toUpperCase()} $${(data.amountDue / 100).toFixed(2)}`
+//     }
+//   }
 
-  await sendLoopsEmail(payload)
-}
+//   await sendLoopsEmail(payload)
+// }
 
 const sendFriendRequestEmail = async (data: FriendRequestEmailData): Promise<void> => {
   const payload: LoopsEmailPayload = {
@@ -79,7 +79,6 @@ const sendFriendRequestEmail = async (data: FriendRequestEmailData): Promise<voi
 }
 
 export const EmailService = {
-  sendPaymentFailureEmail,
   sendFriendRequestEmail,
   sendLoopsEmail
 }

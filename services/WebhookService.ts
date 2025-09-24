@@ -72,6 +72,34 @@ const handleCheckoutSessionCompleted = async (session: Stripe.Checkout.Session):
       stripe_payment_id: session.subscription as string,
     })
     console.log(`License created for user ${userId} with checkout session ${session.id}`)
+
+    // Send Discord notification for successful checkout
+    try {
+      const notificationEngine = getNotificationEngine()
+
+      await notificationEngine.sendNotification({
+        type: 'checkout_completed',
+        user: {
+          id: userId,
+          email: 'N/A' // Email not available in checkout session
+        },
+        referenceId: `checkout_completed_${session.id}`,
+        data: {
+          session_id: session.id,
+          customer_id: customerId,
+          subscription_id: session.subscription,
+          product_id: productId,
+          license_type: productConfig.licenseType,
+          amount_total: session.amount_total,
+          currency: session.currency
+        }
+      }, ['discord'])
+
+      console.log(`Discord notification sent for successful checkout: ${session.id}`)
+    } catch (error) {
+      console.error('Failed to send Discord notification for checkout completion:', error)
+      // Don't throw - we don't want Discord failures to break webhook processing
+    }
   }
 }
 
@@ -83,6 +111,32 @@ const handleSubscriptionDeleted = async (subscription: Stripe.Subscription): Pro
     console.warn(`Failed to update license status for deleted subscription ${subscription.id}. Maybe it didn't exist?`)
   } else {
     console.log(`License expired for subscription ${subscription.id}`)
+
+    // Send Discord notification for subscription cancellation
+    try {
+      const notificationEngine = getNotificationEngine()
+
+      await notificationEngine.sendNotification({
+        type: 'subscription_cancelled',
+        user: {
+          id: updatedLicense.user_id || 'unknown',
+          email: 'N/A' // Email not available in subscription object
+        },
+        referenceId: `subscription_cancelled_${subscription.id}`,
+        data: {
+          subscription_id: subscription.id,
+          customer_id: subscription.customer,
+          license_id: updatedLicense.id,
+          cancelled_at: new Date(),
+          status: subscription.status
+        }
+      }, ['discord'])
+
+      console.log(`Discord notification sent for subscription cancellation: ${subscription.id}`)
+    } catch (error) {
+      console.error('Failed to send Discord notification for subscription cancellation:', error)
+      // Don't throw - we don't want Discord failures to break webhook processing
+    }
   }
 }
 
@@ -90,23 +144,23 @@ const handleInvoicePaymentFailed = async (invoice: Stripe.Invoice): Promise<void
   console.log('Payment failed for invoice:', invoice.id)
   
   // Send email notification if customer email is available
-  if (invoice.customer_email) {
-    try {
-      await EmailService.sendPaymentFailureEmail({
-        customerEmail: invoice.customer_email,
-        customerName: invoice.customer_name as string | undefined,
-        amountDue: invoice.amount_due,
-        currency: invoice.currency
-      })
+  // if (invoice.customer_email) {
+  //   try {
+  //     await EmailService.sendPaymentFailureEmail({
+  //       customerEmail: invoice.customer_email,
+  //       customerName: invoice.customer_name as string | undefined,
+  //       amountDue: invoice.amount_due,
+  //       currency: invoice.currency
+  //     })
 
-      console.log(`Payment failure email sent to ${invoice.customer_email}`)
-    } catch (error) {
-      console.error('Failed to send payment failure email:', error)
-      // Don't throw - we don't want email failures to break webhook processing
-    }
-  } else {
-    console.warn('No customer email found for failed payment, skipping email notification')
-  }
+  //     console.log(`Payment failure email sent to ${invoice.customer_email}`)
+  //   } catch (error) {
+  //     console.error('Failed to send payment failure email:', error)
+  //     // Don't throw - we don't want email failures to break webhook processing
+  //   }
+  // } else {
+  //   console.warn('No customer email found for failed payment, skipping email notification')
+  // }
 
   // Send Discord notification using NotificationEngine
   try {

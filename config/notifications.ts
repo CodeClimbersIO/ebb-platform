@@ -24,7 +24,10 @@ export const notificationConfig: NotificationConfig = {
     paid_user: ['discord'],
     new_user: ['discord'],
     inactive_user: ['discord'],
-    weekly_report: ['discord']
+    weekly_report: ['discord'],
+    payment_failed: ['discord'],
+    checkout_completed: ['discord'],
+    subscription_cancelled: ['discord']
   }
 }
 
