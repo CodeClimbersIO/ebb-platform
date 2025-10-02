@@ -185,16 +185,9 @@ export class DiscordNotificationProvider implements NotificationProvider {
 
   private formatWeeklyReportNotification(payload: NotificationPayload): DiscordWebhookPayload {
     const embed: DiscordEmbed = {
-      title: '📊 Weekly Report',
-      description: `Weekly user activity summary`,
+      title: '📊 Weekly Report Reminder',
+      description: `Time to send off the weekly reports!`,
       color: 0x9932CC, // Purple color
-      fields: [
-        {
-          name: '📈 Report',
-          value: 'Weekly metrics are ready',
-          inline: false
-        }
-      ],
       footer: {
         text: 'Ebb Platform Notifications'
       },

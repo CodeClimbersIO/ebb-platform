@@ -24,6 +24,10 @@ export interface SlackCleanupJobData {
   userId: string
 }
 
+export interface WeeklyEmailReminderJobData {
+  [key: string]: any
+}
+
 export interface UserMetrics {
   newUsers: number
   paidUsers: number
@@ -93,6 +97,7 @@ export const JOB_TYPES = {
   TEST_JOB: 'test-job',
   SLACK_CLEANUP_DND: 'slack-cleanup-dnd',
   SLACK_CLEANUP_STATUS: 'slack-cleanup-status',
+  WEEKLY_EMAIL_REMINDER: 'weekly-email-reminder',
 } as const
 
 export type JobType = typeof JOB_TYPES[keyof typeof JOB_TYPES]

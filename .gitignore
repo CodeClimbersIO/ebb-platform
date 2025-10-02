@@ -41,3 +41,6 @@ location_db
 supabase/supabase/.temp/
 supabase/.temp/
 supabase/.branches/
+
+
+.claude

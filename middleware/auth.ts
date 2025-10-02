@@ -22,7 +22,7 @@ const TEST_USER = {
 
 const runTestMode = (req: Request, res: Response, next: NextFunction) => {
   const authHeader = req.headers.authorization
-  const token = authHeader && authHeader.startsWith('Bearer ') 
+  const token = authHeader?.startsWith('Bearer ') 
     ? authHeader.substring(7) 
     : null
 
@@ -48,7 +48,7 @@ const authenticateTokenImpl = async (req: Request, res: Response, next: NextFunc
   }
 
   const authHeader = req.headers.authorization
-  const token = authHeader && authHeader.startsWith('Bearer ') 
+  const token = authHeader?.startsWith('Bearer ') 
     ? authHeader.substring(7) 
     : null
 

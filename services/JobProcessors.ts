@@ -4,13 +4,14 @@ import { SlackService } from './SlackService.js'
 import { UserNotificationsRepo } from '../repos/UserNotifications'
 import { NotificationEngine } from './NotificationEngine'
 import { getNotificationConfig } from '../config/notifications'
-import type { 
-  NewUserCheckJobData, 
-  PaidUserCheckJobData, 
+import type {
+  NewUserCheckJobData,
+  PaidUserCheckJobData,
   InactiveUserCheckJobData,
   OfflineUserCheckJobData,
   TestJobData,
   SlackCleanupJobData,
+  WeeklyEmailReminderJobData,
   JobResult,
   PaidUserRecord,
   NewUserRecord,
@@ -336,9 +337,9 @@ export const processSlackCleanup = async (job: Job<SlackCleanupJobData>): Promis
   try {
     const { sessionId, userId } = job.data
     console.log(`🧹 Processing Slack cleanup job for session ${sessionId}...`)
-    
+
     await SlackService.cleanupExpiredFocusSession(sessionId, userId)
-    
+
     return {
       success: true,
       message: `Slack cleanup completed for session ${sessionId}`,
@@ -356,6 +357,66 @@ export const processSlackCleanup = async (job: Job<SlackCleanupJobData>): Promis
 }
 
 /**
+ * Process weekly email reminder job (runs Mondays at 8:00 AM UTC)
+ */
+export const processWeeklyEmailReminder = async (job: Job<WeeklyEmailReminderJobData>): Promise<JobResult> => {
+  try {
+    console.log('📧 Processing weekly email reminder job...')
+
+    // Initialize notification engine
+    const notificationEngine = getNotificationEngine()
+    const targetChannels = notificationEngine.getConfig().events.weekly_report
+
+    // Create a system user object for the reminder notification
+    const reminderUser = {
+      id: 'system',
+      email: 'team@codeclimbers.io'
+    }
+
+    // Create payload for the reminder notification
+    const payload = {
+      type: 'weekly_report' as const,
+      user: reminderUser,
+      referenceId: `weekly_reminder_${new Date().toISOString().split('T')[0]}`,
+      data: {
+        timestamp: new Date().toISOString()
+      }
+    }
+
+    // Send notification through configured channels (Discord)
+    const results = await notificationEngine.sendNotification(payload, targetChannels)
+
+    const successCount = results.filter(r => r.success).length
+    const allSuccess = results.every(r => r.success)
+
+    if (allSuccess) {
+      console.log('✅ Weekly email reminder notification sent successfully')
+    } else {
+      console.error('❌ Some weekly email reminders failed to send')
+    }
+
+    return {
+      success: allSuccess,
+      message: allSuccess
+        ? `Weekly email reminder sent successfully to ${successCount} channels`
+        : `Weekly email reminder partially sent: ${successCount}/${results.length} succeeded`,
+      data: {
+        timestamp: new Date().toISOString(),
+        results
+      },
+      processedAt: new Date()
+    }
+  } catch (error) {
+    console.error('❌ Error processing weekly email reminder:', error)
+    return {
+      success: false,
+      message: `Failed to process weekly email reminder: ${error}`,
+      processedAt: new Date()
+    }
+  }
+}
+
+/**
  * Job processor registry
  */
 export const jobProcessors = {
@@ -366,4 +427,5 @@ export const jobProcessors = {
   'test-job': processTestJob,
   'slack-cleanup-dnd': processSlackCleanup,
   'slack-cleanup-status': processSlackCleanup,
+  'weekly-email-reminder': processWeeklyEmailReminder,
 } 

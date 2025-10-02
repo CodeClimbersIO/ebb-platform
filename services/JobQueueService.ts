@@ -174,12 +174,26 @@ class JobQueueService {
       }
     )
 
+    // Schedule weekly email reminder every Monday at 8:00 AM UTC
+    await this.queue.add(
+      JOB_TYPES.WEEKLY_EMAIL_REMINDER,
+      {},
+      {
+        repeat: {
+          pattern: '0 8 * * 1', // Every Monday at 8:00 AM UTC
+        },
+        priority: JOB_PRIORITIES.NORMAL,
+        jobId: 'recurring-weekly-email-reminder',
+      }
+    )
+
     console.log('✅ Recurring jobs scheduled successfully')
     console.log('   🧪 Test job: Every minute')
     console.log('   📋 New user check: Every 10 minutes')
     console.log('   💳 Paid user check: Every 10 minutes')
     console.log('   😴 Inactive user check: Daily at 9:00 AM')
     console.log('   🔄 Offline user check: Every 5 minutes')
+    console.log('   📧 Weekly email reminder: Mondays at 8:00 AM UTC')
   }
 
   // Manual job triggers (for testing or one-off runs)
@@ -224,6 +238,15 @@ class JobQueueService {
       throw new Error('Queue not initialized')
     }
     return this.queue.add(JOB_TYPES.TEST_JOB, {}, {
+      priority: JOB_PRIORITIES.HIGH,
+    })
+  }
+
+  async triggerWeeklyEmailReminder() {
+    if (!this.queue) {
+      throw new Error('Queue not initialized')
+    }
+    return this.queue.add(JOB_TYPES.WEEKLY_EMAIL_REMINDER, {}, {
       priority: JOB_PRIORITIES.HIGH,
     })
   }

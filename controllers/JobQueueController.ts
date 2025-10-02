@@ -106,12 +106,33 @@ const triggerTestJob = async (req: Request, res: Response): Promise<void> => {
   }
 }
 
+const triggerWeeklyEmailReminder = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const job = await jobQueueService.triggerWeeklyEmailReminder()
+    res.json({
+      success: true,
+      message: 'Weekly email reminder job triggered',
+      data: {
+        jobId: job.id,
+        jobName: job.name
+      }
+    })
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: 'Failed to trigger weekly email reminder',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    })
+  }
+}
+
 // Protected routes - require authentication
 router.get('/stats', AuthMiddleware.authenticateToken, asyncHandler(getQueueStats))
 router.post('/trigger/new-users', AuthMiddleware.authenticateToken, asyncHandler(triggerNewUserCheck))
 router.post('/trigger/paid-users', AuthMiddleware.authenticateToken, asyncHandler(triggerPaidUserCheck))
 router.post('/trigger/inactive-users', AuthMiddleware.authenticateToken, asyncHandler(triggerInactiveUserCheck))
 router.post('/trigger/test', AuthMiddleware.authenticateToken, asyncHandler(triggerTestJob))
+router.post('/trigger/weekly-email-reminder', AuthMiddleware.authenticateToken, asyncHandler(triggerWeeklyEmailReminder))
 
 export const JobQueueController = {
   router,
@@ -120,4 +141,5 @@ export const JobQueueController = {
   triggerPaidUserCheck,
   triggerInactiveUserCheck,
   triggerTestJob,
+  triggerWeeklyEmailReminder,
 } 
