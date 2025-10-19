@@ -72,6 +72,14 @@ const getExistingSubscriptionLicenseByUserId = async (userId: string): Promise<L
   return result || null
 }
 
+const getLicenseByUserId = async (userId: string): Promise<License | null> => {
+  const result = await db(tableName)
+    .where({ user_id: userId })
+    .first('*')
+
+  return result || null
+}
+
 const createLicense = async (data: CreateLicenseData): Promise<License> => {
   const [license] = await db(tableName)
     .insert({
@@ -126,6 +134,7 @@ export const LicenseRepo = {
   getActiveLicenseByUserId,
   getFreeTrialLicenseByUserId,
   getExistingSubscriptionLicenseByUserId,
+  getLicenseByUserId,
   createLicense,
   updateLicense,
   deleteLicense,

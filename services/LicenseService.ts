@@ -6,7 +6,7 @@ const getActiveLicense = async (userId: string) => {
 }
 
 const startFreeTrial = async (userId: string) => {
-  const existingLicense = await LicenseRepo.getActiveLicenseByUserId(userId)
+  const existingLicense = await LicenseRepo.getLicenseByUserId(userId)
   if (existingLicense) {
     throw new ApiError('User already has a license', 422)
   }
