@@ -117,7 +117,7 @@ const handleSubscriptionUpdated = async (subscription: Stripe.Subscription): Pro
       const license = await LicenseRepo.getLicenseByStripePaymentId(subscription.id)
 
       await notificationEngine.sendNotification({
-        type: 'subscription_cancel_requested',
+        type: 'subscription_cancelled',
         user: {
           id: license?.user_id || 'unknown',
           email: 'N/A' // Email not available in subscription object
@@ -128,8 +128,9 @@ const handleSubscriptionUpdated = async (subscription: Stripe.Subscription): Pro
           customer_id: subscription.customer,
           license_id: license?.id,
           cancel_at: subscription.cancel_at ? new Date(subscription.cancel_at * 1000) : null,
-          current_period_end: new Date(subscription.current_period_end * 1000),
-          status: subscription.status
+          cancel_at_period_end: subscription.cancel_at_period_end,
+          status: subscription.status,
+          message: 'User requested cancellation - will expire at period end'
         }
       }, ['discord'])
 
@@ -228,6 +229,7 @@ const handleInvoicePaymentFailed = async (invoice: Stripe.Invoice): Promise<void
 
 export const WebhookService = {
   handleCheckoutSessionCompleted,
+  handleSubscriptionUpdated,
   handleSubscriptionDeleted,
   handleInvoicePaymentFailed,
 }

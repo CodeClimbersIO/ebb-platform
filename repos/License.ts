@@ -118,6 +118,14 @@ const deleteLicense = async (userId: string): Promise<boolean> => {
 
 
 
+const getLicenseByStripePaymentId = async (stripePaymentId: string): Promise<License | null> => {
+  const result = await db(tableName)
+    .where({ stripe_payment_id: stripePaymentId })
+    .first('*')
+
+  return result || null
+}
+
 const updateLicenseByStripePaymentId = async (stripePaymentId: string, status: LicenseStatus): Promise<License | null> => {
   const [license] = await db(tableName)
     .where({ stripe_payment_id: stripePaymentId })
@@ -126,7 +134,7 @@ const updateLicenseByStripePaymentId = async (stripePaymentId: string, status: L
       updated_at: new Date()
     })
     .returning('*')
-  
+
   return license || null
 }
 
@@ -135,6 +143,7 @@ export const LicenseRepo = {
   getFreeTrialLicenseByUserId,
   getExistingSubscriptionLicenseByUserId,
   getLicenseByUserId,
+  getLicenseByStripePaymentId,
   createLicense,
   updateLicense,
   deleteLicense,
