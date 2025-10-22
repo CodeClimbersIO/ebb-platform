@@ -118,9 +118,9 @@ const deleteLicense = async (userId: string): Promise<boolean> => {
 
 
 
-const getLicenseByStripePaymentId = async (stripePaymentId: string): Promise<License | null> => {
+const getLicenseByCustomerId = async (customerId: string): Promise<License | null> => {
   const result = await db(tableName)
-    .where({ stripe_payment_id: stripePaymentId })
+    .where({ stripe_customer_id: customerId })
     .first('*')
 
   return result || null
@@ -139,11 +139,11 @@ const updateLicenseByStripePaymentId = async (stripePaymentId: string, status: L
 }
 
 export const LicenseRepo = {
+  getLicenseByCustomerId,
   getActiveLicenseByUserId,
   getFreeTrialLicenseByUserId,
   getExistingSubscriptionLicenseByUserId,
   getLicenseByUserId,
-  getLicenseByStripePaymentId,
   createLicense,
   updateLicense,
   deleteLicense,

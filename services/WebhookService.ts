@@ -13,7 +13,9 @@ const getNotificationEngine = (): NotificationEngine => {
 }
 
 const handleCheckoutSessionCompleted = async (session: Stripe.Checkout.Session): Promise<void> => {
-  const customerId = session.customer as string
+  const customer = session.customer as Stripe.Customer
+  console.log('customer', customer)
+  const customerId = customer.id
   const userId = session.client_reference_id || session.metadata?.user_id
   const productId = session.metadata?.product_id
   
@@ -114,7 +116,7 @@ const handleSubscriptionUpdated = async (subscription: Stripe.Subscription): Pro
       const notificationEngine = getNotificationEngine()
 
       // Get license info to get user_id
-      const license = await LicenseRepo.getLicenseByStripePaymentId(subscription.id)
+      const license = await LicenseRepo.getLicenseByCustomerId(subscription.customer as string)
 
       await notificationEngine.sendNotification({
         type: 'subscription_cancelled',
