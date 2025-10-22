@@ -56,6 +56,12 @@ const handleStripeWebhook = async (req: Request, res: Response): Promise<void> =
         break
       }
       
+      case 'customer.subscription.updated': {
+        const subscription = event.data.object as Stripe.Subscription
+        await WebhookService.handleSubscriptionUpdated(subscription)
+        break
+      }
+
       case 'customer.subscription.deleted': {
         const subscription = event.data.object as Stripe.Subscription
         await WebhookService.handleSubscriptionDeleted(subscription)
