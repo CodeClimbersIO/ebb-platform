@@ -1,6 +1,6 @@
 import Stripe from 'stripe'
 import { ApiError } from '../middleware/errorHandler.js'
-import { getProductConfig, type ProductConfig } from '../config/products.js'
+import { type ProductConfig } from '../config/products.js'
 
 let stripeClient: Stripe | null = null
 

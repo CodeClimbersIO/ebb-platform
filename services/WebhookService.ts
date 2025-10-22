@@ -81,7 +81,7 @@ const handleCheckoutSessionCompleted = async (session: Stripe.Checkout.Session):
         type: 'checkout_completed',
         user: {
           id: userId,
-          email: 'N/A' // Email not available in checkout session
+          email: session.customer_details?.email || session.customer_email || 'N/A'
         },
         referenceId: `checkout_completed_${session.id}`,
         data: {
