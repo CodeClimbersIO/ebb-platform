@@ -157,17 +157,17 @@ const handleSubscriptionDeleted = async (subscription: Stripe.Subscription): Pro
       const notificationEngine = getNotificationEngine()
 
       await notificationEngine.sendNotification({
-        type: 'subscription_cancelled',
+        type: 'subscription_expired',
         user: {
           id: updatedLicense.user_id || 'unknown',
           email: 'N/A' // Email not available in subscription object
         },
-        referenceId: `subscription_cancelled_${subscription.id}`,
+        referenceId: `subscription_expired_${subscription.id}`,
         data: {
           subscription_id: subscription.id,
           customer_id: subscription.customer,
           license_id: updatedLicense.id,
-          cancelled_at: new Date(),
+          expired_at: new Date(),
           status: subscription.status
         }
       }, ['discord'])
