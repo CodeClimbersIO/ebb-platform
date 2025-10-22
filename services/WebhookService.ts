@@ -13,9 +13,7 @@ const getNotificationEngine = (): NotificationEngine => {
 }
 
 const handleCheckoutSessionCompleted = async (session: Stripe.Checkout.Session): Promise<void> => {
-  const customer = session.customer as Stripe.Customer
-  console.log('customer', customer)
-  const customerId = customer.id
+  const customerId = session.customer as string
   const userId = session.client_reference_id || session.metadata?.user_id
   const productId = session.metadata?.product_id
   
@@ -107,6 +105,7 @@ const handleCheckoutSessionCompleted = async (session: Stripe.Checkout.Session):
 
 
 const handleSubscriptionUpdated = async (subscription: Stripe.Subscription): Promise<void> => {
+  console.log('subscription', subscription)
   // Check if subscription was just marked for cancellation
   if (subscription.cancel_at_period_end) {
     console.log(`Subscription ${subscription.id} marked for cancellation at period end`)
@@ -145,6 +144,7 @@ const handleSubscriptionUpdated = async (subscription: Stripe.Subscription): Pro
 }
 
 const handleSubscriptionDeleted = async (subscription: Stripe.Subscription): Promise<void> => {
+  console.log('subscription', subscription)
   const updatedLicense = await LicenseRepo.updateLicenseByStripePaymentId(subscription.id, 'expired')
 
   if (!updatedLicense) {
