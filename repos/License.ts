@@ -126,9 +126,9 @@ const getLicenseByCustomerId = async (customerId: string): Promise<License | nul
   return result || null
 }
 
-const updateLicenseByStripePaymentId = async (stripePaymentId: string, status: LicenseStatus): Promise<License | null> => {
+const updateLicenseByCustomerId = async (customerId: string, status: LicenseStatus): Promise<License | null> => {
   const [license] = await db(tableName)
-    .where({ stripe_payment_id: stripePaymentId })
+    .where({ stripe_customer_id: customerId })
     .update({
       status,
       updated_at: new Date()
@@ -147,5 +147,5 @@ export const LicenseRepo = {
   createLicense,
   updateLicense,
   deleteLicense,
-  updateLicenseByStripePaymentId,
+  updateLicenseByCustomerId,
 }

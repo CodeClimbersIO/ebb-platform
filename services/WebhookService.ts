@@ -145,7 +145,7 @@ const handleSubscriptionUpdated = async (subscription: Stripe.Subscription): Pro
 
 const handleSubscriptionDeleted = async (subscription: Stripe.Subscription): Promise<void> => {
   console.log('subscription', subscription)
-  const updatedLicense = await LicenseRepo.updateLicenseByStripePaymentId(subscription.id, 'expired')
+  const updatedLicense = await LicenseRepo.updateLicenseByCustomerId(subscription.customer as string, 'expired')
 
   if (!updatedLicense) {
     console.warn(`Failed to update license status for deleted subscription ${subscription.id}. Maybe it didn't exist?`)
