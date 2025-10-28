@@ -2,7 +2,7 @@ import type { PaidUserRecord, NewUserRecord, InactiveUserRecord } from './jobs'
 
 export type { PaidUserRecord, NewUserRecord, InactiveUserRecord } from './jobs'
 
-export type NotificationType = 'paid_user' | 'new_user' | 'inactive_user' | 'weekly_report' | 'payment_failed' | 'checkout_completed' | 'subscription_cancelled'
+export type NotificationType = 'paid_user' | 'new_user' | 'inactive_user' | 'weekly_report' | 'payment_failed' | 'checkout_completed' | 'subscription_cancelled' | 'subscription_expired'
 export type NotificationChannel = 'discord' | 'email' | 'slack' | 'sms'
 
 export interface BaseUserRecord {

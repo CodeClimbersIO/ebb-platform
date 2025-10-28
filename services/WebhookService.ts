@@ -44,6 +44,7 @@ const handleCheckoutSessionCompleted = async (session: Stripe.Checkout.Session):
         status: 'active',
         license_type: productConfig.licenseType,
         stripe_payment_id: session.subscription as string,
+        expiration_date: undefined,
         updated_at: new Date()
       })
       return
@@ -57,6 +58,7 @@ const handleCheckoutSessionCompleted = async (session: Stripe.Checkout.Session):
       await LicenseRepo.updateLicense(existingSubscriptionLicense.id, {
         status: 'active',
         stripe_payment_id: session.subscription as string,
+        expiration_date: undefined,
         updated_at: new Date()
       })
       console.log('Existing subscription license updated')
@@ -70,6 +72,7 @@ const handleCheckoutSessionCompleted = async (session: Stripe.Checkout.Session):
       purchase_date: new Date(),
       stripe_customer_id: customerId,
       stripe_payment_id: session.subscription as string,
+      expiration_date: undefined,
     })
     console.log(`License created for user ${userId} with checkout session ${session.id}`)
 
@@ -106,30 +109,46 @@ const handleCheckoutSessionCompleted = async (session: Stripe.Checkout.Session):
 
 const handleSubscriptionUpdated = async (subscription: Stripe.Subscription): Promise<void> => {
   console.log('subscription', subscription)
+
+  // Get license info
+  const license = await LicenseRepo.getLicenseByCustomerId(subscription.customer as string)
+
+  if (!license) {
+    console.warn(`No license found for customer ${subscription.customer}`)
+    return
+  }
+
   // Check if subscription was just marked for cancellation
-  if (subscription.cancel_at_period_end) {
+  if (subscription.cancel_at_period_end && subscription.cancel_at) {
     console.log(`Subscription ${subscription.id} marked for cancellation at period end`)
+
+    // Set expiration date to when subscription will cancel
+    const expirationDate = new Date(subscription.cancel_at * 1000)
+    await LicenseRepo.updateLicense(license.id, {
+      expiration_date: expirationDate,
+      updated_at: new Date()
+    })
+
+    console.log(`Expiration date set to ${expirationDate.toISOString()} for license ${license.id}`)
 
     // Send Discord notification for cancellation request
     try {
       const notificationEngine = getNotificationEngine()
 
-      // Get license info to get user_id
-      const license = await LicenseRepo.getLicenseByCustomerId(subscription.customer as string)
-
       await notificationEngine.sendNotification({
         type: 'subscription_cancelled',
         user: {
-          id: license?.user_id || 'unknown',
+          id: license.user_id || 'unknown',
           email: 'N/A' // Email not available in subscription object
         },
         referenceId: `subscription_cancel_requested_${subscription.id}`,
         data: {
           subscription_id: subscription.id,
           customer_id: subscription.customer,
-          license_id: license?.id,
-          cancel_at: subscription.cancel_at ? new Date(subscription.cancel_at * 1000) : null,
+          license_id: license.id,
+          cancel_at: subscription.cancel_at,
           cancel_at_period_end: subscription.cancel_at_period_end,
+          expiration_date: expirationDate,
           status: subscription.status,
           message: 'User requested cancellation - will expire at period end'
         }
@@ -139,6 +158,19 @@ const handleSubscriptionUpdated = async (subscription: Stripe.Subscription): Pro
     } catch (error) {
       console.error('Failed to send Discord notification for cancellation request:', error)
       // Don't throw - we don't want Discord failures to break webhook processing
+    }
+  } else {
+    // Subscription was reactivated or updated - remove expiration date if it exists
+    if (license.expiration_date) {
+      console.log(`Subscription ${subscription.id} reactivated - removing expiration date`)
+
+      await LicenseRepo.updateLicense(license.id, {
+        expiration_date: undefined,
+        status: 'active',
+        updated_at: new Date()
+      })
+
+      console.log(`Expiration date removed for license ${license.id}`)
     }
   }
 }
@@ -154,6 +186,7 @@ const handleSubscriptionDeleted = async (subscription: Stripe.Subscription): Pro
 
     // Send Discord notification for subscription cancellation
     try {
+      
       const notificationEngine = getNotificationEngine()
 
       await notificationEngine.sendNotification({
