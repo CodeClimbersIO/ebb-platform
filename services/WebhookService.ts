@@ -44,7 +44,7 @@ const handleCheckoutSessionCompleted = async (session: Stripe.Checkout.Session):
         status: 'active',
         license_type: productConfig.licenseType,
         stripe_payment_id: session.subscription as string,
-        expiration_date: undefined,
+        expiration_date: null,
         updated_at: new Date()
       })
       return
@@ -58,7 +58,7 @@ const handleCheckoutSessionCompleted = async (session: Stripe.Checkout.Session):
       await LicenseRepo.updateLicense(existingSubscriptionLicense.id, {
         status: 'active',
         stripe_payment_id: session.subscription as string,
-        expiration_date: undefined,
+        expiration_date: null,
         updated_at: new Date()
       })
       console.log('Existing subscription license updated')
@@ -165,7 +165,7 @@ const handleSubscriptionUpdated = async (subscription: Stripe.Subscription): Pro
       console.log(`Subscription ${subscription.id} reactivated - removing expiration date`)
 
       await LicenseRepo.updateLicense(license.id, {
-        expiration_date: undefined,
+        expiration_date: null,
         status: 'active',
         updated_at: new Date()
       })

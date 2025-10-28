@@ -9,7 +9,7 @@ export interface License {
   license_type: LicenseType;
   status?: LicenseStatus;
   purchase_date: Date;
-  expiration_date?: Date;
+  expiration_date?: Date | null;
   stripe_customer_id?: string;
   stripe_payment_id?: string;
   created_at: Date;
@@ -20,7 +20,7 @@ export interface CreateLicenseData {
   user_id: string;
   license_type: LicenseType;
   status?: LicenseStatus;
-  expiration_date?: Date;
+  expiration_date?: Date | null;
   purchase_date?: Date;
   stripe_customer_id?: string;
   stripe_payment_id?: string;
@@ -31,7 +31,7 @@ export interface UpsertLicenseData {
   license_type: LicenseType;
   status: LicenseStatus;
   purchase_date: Date;
-  expiration_date?: Date;
+  expiration_date?: Date | null;
   stripe_customer_id?: string;
   stripe_payment_id?: string;
 }
