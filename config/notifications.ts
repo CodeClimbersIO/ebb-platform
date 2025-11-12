@@ -8,8 +8,14 @@ export const notificationConfig: NotificationConfig = {
       defaultChannel: process.env.DISCORD_DEFAULT_CHANNEL
     },
     email: {
-      enabled: !!(process.env.EMAIL_ENABLED === 'true'),
-      provider: (process.env.EMAIL_PROVIDER as 'sendgrid' | 'ses') || 'sendgrid'
+      enabled: !!(process.env.LOOPS_API_KEY),
+      provider: 'loops',
+      apiKey: process.env.LOOPS_API_KEY,
+      templates: {
+        friend_request_existing_user: process.env.LOOPS_TEMPLATE_FRIEND_REQUEST_EXISTING || 'cmc3u8e020700z00iason0m0f',
+        friend_request_new_user: process.env.LOOPS_TEMPLATE_FRIEND_REQUEST_NEW || 'cmc6k356p2tf0zq0jg9y0atvr',
+        weekly_report: process.env.LOOPS_TEMPLATE_WEEKLY_REPORT || ''
+      }
     },
     slack: {
       enabled: !!(process.env.SLACK_WEBHOOK_URL),
@@ -27,7 +33,9 @@ export const notificationConfig: NotificationConfig = {
     weekly_report: ['discord'],
     payment_failed: ['discord'],
     checkout_completed: ['discord'],
-    subscription_cancelled: ['discord']
+    subscription_cancelled: ['discord'],
+    subscription_expired: ['discord'],
+    friend_request: ['email']
   }
 }
 
