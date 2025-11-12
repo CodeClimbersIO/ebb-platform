@@ -102,14 +102,4 @@ describe('LicenseRepo', () => {
       expect(new Date(result?.expiration_date || '')).toEqual(futureExpiration)
     })
   })
-  
-
-  describe('updateLicenseByStripePaymentId', () => {
-    it('should update a license', async () => {
-      const result = await LicenseRepo.updateLicenseByStripePaymentId('pi_test123', 'expired')
-      expect(result).not.toBeNull()
-      expect(result?.user_id).toBe(user1Id)
-      expect(result?.status).toBe('expired')
-    })
-  })
 })

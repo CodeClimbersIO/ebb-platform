@@ -6,7 +6,6 @@ import type Stripe from 'stripe'
 mock.module('../../repos/License.js', () => ({
   LicenseRepo: {
     createLicense: mock(() => Promise.resolve({ id: 'license-123' })),
-    updateLicenseByStripePaymentId: mock(() => Promise.resolve({ id: 'license-123' })),
     getFreeTrialLicenseByUserId: mock(() => Promise.resolve(null)),
     getExistingSubscriptionLicenseByUserId: mock(() => Promise.resolve(null)),
     updateLicense: mock(() => Promise.resolve({ id: 'trial-license-456' }))
@@ -36,7 +35,6 @@ describe('WebhookService', () => {
     // Clear call history for all mocks
     (LicenseRepo.createLicense as any).mockClear();
     (LicenseRepo.updateLicense as any).mockClear();
-    (LicenseRepo.updateLicenseByStripePaymentId as any).mockClear();
     (LicenseRepo.getFreeTrialLicenseByUserId as any).mockClear();
     (LicenseRepo.getExistingSubscriptionLicenseByUserId as any).mockClear();
     process.env.STRIPE_SANDBOX = 'true'
@@ -109,6 +107,7 @@ describe('WebhookService', () => {
         status: 'active',
         license_type: 'subscription',
         stripe_payment_id: 'sub_1S1wGyAuvxsld26UyyEWlujr',
+        expiration_date: null,
         updated_at: expect.any(Date)
       })
       
@@ -131,6 +130,7 @@ describe('WebhookService', () => {
       expect(LicenseRepo.updateLicense).toHaveBeenCalledWith('expired-license-456', {
         status: 'active',
         stripe_payment_id: 'sub_1S1wGyAuvxsld26UyyEWlujr',
+        expiration_date: null,
         updated_at: expect.any(Date)
       })
 
