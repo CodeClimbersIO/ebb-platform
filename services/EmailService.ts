@@ -1,15 +1,6 @@
-interface LoopsEmailPayload {
-  transactionalId: string
-  email: string
-  dataVariables: Record<string, any>
-}
-
-interface PaymentFailureEmailData {
-  customerEmail: string
-  customerName?: string
-  amountDue: number
-  currency: string
-}
+import { NotificationEngine } from './NotificationEngine'
+import { getNotificationConfig } from '../config/notifications'
+import type { NotificationPayload, BaseUserRecord } from '../types/notifications'
 
 interface FriendRequestEmailData {
   toEmail: string
@@ -18,67 +9,43 @@ interface FriendRequestEmailData {
   existingUser?: boolean
 }
 
-const sendLoopsEmail = async (payload: LoopsEmailPayload): Promise<void> => {
+const getNotificationEngine = (): NotificationEngine => {
+  const config = getNotificationConfig()
+  return new NotificationEngine(config)
+}
+
+const sendFriendRequestEmail = async (data: FriendRequestEmailData): Promise<void> => {
   try {
-    const loopsApiKey = process.env.LOOPS_API_KEY
-    if (!loopsApiKey) {
-      console.error('LOOPS_API_KEY not configured, skipping email send')
-      return
+    const notificationEngine = getNotificationEngine()
+
+    const payload: NotificationPayload = {
+      type: 'friend_request',
+      user: {
+        id: data.requestId, // Use request ID as the user ID for tracking
+        email: data.toEmail
+      } as BaseUserRecord,
+      referenceId: `friend_request_${data.requestId}`,
+      data: {
+        fromEmail: data.fromEmail,
+        requestId: data.requestId,
+        existingUser: data.existingUser
+      }
     }
 
-    const response = await fetch('https://app.loops.so/api/v1/transactional', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${loopsApiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(payload)
-    })
+    const results = await notificationEngine.sendNotification(payload, ['email'])
 
-    if (!response.ok) {
-      const errorText = await response.text()
-      console.error('Failed to send email via Loops:', response.status, errorText)
-      return
+    const success = results.some(r => r.success)
+    if (success) {
+      console.log('✅ Friend request email sent successfully via NotificationEngine')
+    } else {
+      console.error('❌ Failed to send friend request email:', results[0]?.error)
     }
-
-    const result = await response.json()
-    console.log('Email sent successfully via Loops:', result)
-    
   } catch (error) {
-    console.error('Failed to send email:', error)
+    console.error('❌ Failed to send friend request email:', error)
     // Don't throw here - we don't want email failures to prevent other operations
   }
 }
 
-// const sendPaymentFailureEmail = async (data: PaymentFailureEmailData): Promise<void> => {
-//   const payload: LoopsEmailPayload = {
-//     transactionalId: 'YOUR_PAYMENT_FAILURE_TEMPLATE_ID', // Replace with your Loops template ID
-//     email: data.customerEmail,
-//     dataVariables: {
-//       customer_email: data.customerEmail,
-//       customer_name: data.customerName || '',
-//       formatted_amount: `${data.currency.toUpperCase()} $${(data.amountDue / 100).toFixed(2)}`
-//     }
-//   }
-
-//   await sendLoopsEmail(payload)
-// }
-
-const sendFriendRequestEmail = async (data: FriendRequestEmailData): Promise<void> => {
-  const payload: LoopsEmailPayload = {
-    transactionalId: data.existingUser ? 'cmc3u8e020700z00iason0m0f' : 'cmc6k356p2tf0zq0jg9y0atvr',
-    email: data.toEmail,
-    dataVariables: {
-      to_email: data.toEmail,
-      from_email: data.fromEmail,
-      request_id: data.requestId
-    }
-  }
-
-  await sendLoopsEmail(payload)
-}
-
 export const EmailService = {
-  sendFriendRequestEmail,
-  sendLoopsEmail
+  sendFriendRequestEmail
 }

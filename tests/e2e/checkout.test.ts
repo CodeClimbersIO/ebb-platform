@@ -101,7 +101,11 @@ describe('Checkout API', () => {
 
     describe('return validation', () => {
       it('should return 200 when licenseType is valid', async () => {
+        let originalGetLicenseByUserId = LicenseService.getActiveLicense
+        let originalCreateCheckoutSession = StripeService.createCheckoutSession
 
+        LicenseService.getActiveLicense = async () => null
+        StripeService.createCheckoutSession = async () => 'https://checkout.stripe.com/test-session'
 
         const response = await request(app)
           .post('/api/checkout/create')
@@ -111,6 +115,9 @@ describe('Checkout API', () => {
 
         expect(response.body.success).toBe(true)
         expect(response.body.data).toHaveProperty('url')
+
+        LicenseService.getActiveLicense = originalGetLicenseByUserId
+        StripeService.createCheckoutSession = originalCreateCheckoutSession
       })
     })
 

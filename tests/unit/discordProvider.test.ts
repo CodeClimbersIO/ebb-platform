@@ -229,7 +229,7 @@ describe('DiscordNotificationProvider', () => {
       expect(callArgs).toBeDefined()
       const body = JSON.parse(callArgs![1].body)
 
-      expect(body.embeds[0].title).toBe('📊 Weekly Report')
+      expect(body.embeds[0].title).toBe('📊 Weekly Report Reminder')
       expect(body.embeds[0].color).toBe(0x9932CC) // Purple
     })
   })
