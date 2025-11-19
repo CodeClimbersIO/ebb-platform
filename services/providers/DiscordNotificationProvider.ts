@@ -251,8 +251,8 @@ export class DiscordNotificationProvider implements NotificationProvider {
       color: 0x00C851, // Success green color
       fields: [
         {
-          name: '👤 User ID',
-          value: payload.user.id,
+          name: '👤 User',
+          value: payload.user.email,
           inline: true
         },
         {
@@ -304,64 +304,64 @@ export class DiscordNotificationProvider implements NotificationProvider {
     }
   }
 
-    private formatSubscriptionCancelledNotification(payload: NotificationPayload): DiscordWebhookPayload {
-      const embed: DiscordEmbed = {
-        title: '❌ Subscription Cancelled',
-        description: `A user's subscription has been cancelled`,
-        color: 0xFF4444, // Warning red color
-        fields: [
-          {
-            name: '👤 User ID',
-            value: payload.user.id,
-            inline: true
-          },
-          {
-            name: '🗓️ Cancelled At',
-            value: payload.data?.cancelled_at ? `<t:${Math.floor(new Date(payload.data.cancelled_at).getTime() / 1000)}:R>` : 'Just now',
-            inline: true
-          },
-          {
-            name: '📋 Subscription ID',
-            value: payload.data?.subscription_id || 'Unknown',
-            inline: false
-          }
-        ],
-        footer: {
-          text: 'Ebb Platform Notifications'
+  private formatSubscriptionCancelledNotification(payload: NotificationPayload): DiscordWebhookPayload {
+    const embed: DiscordEmbed = {
+      title: '❌ Subscription Cancelled',
+      description: `A user's subscription has been cancelled`,
+      color: 0xFF4444, // Warning red color
+      fields: [
+        {
+          name: '👤 User ID',
+          value: payload.user.id,
+          inline: true
         },
-        timestamp: new Date().toISOString()
-      }
-
-      // Add optional fields if available
-      if (payload.data?.license_id) {
-        embed.fields?.push({
-          name: '🎫 License ID',
-          value: payload.data.license_id,
+        {
+          name: '🗓️ Cancelled At',
+          value: payload.data?.cancelled_at ? `<t:${Math.floor(new Date(payload.data.cancelled_at).getTime() / 1000)}:R>` : 'Just now',
           inline: true
-        })
-      }
-
-      if (payload.data?.customer_id) {
-        embed.fields?.push({
-          name: '🏪 Customer ID',
-          value: payload.data.customer_id,
-          inline: true
-        })
-      }
-
-      if (payload.data?.status) {
-        embed.fields?.push({
-          name: '📊 Status',
-          value: payload.data.status,
-          inline: true
-        })
-      }
-
-      return {
-        embeds: [embed],
-        username: 'Ebb Notifications',
-      }
+        },
+        {
+          name: '📋 Subscription ID',
+          value: payload.data?.subscription_id || 'Unknown',
+          inline: false
+        }
+      ],
+      footer: {
+        text: 'Ebb Platform Notifications'
+      },
+      timestamp: new Date().toISOString()
     }
+
+    // Add optional fields if available
+    if (payload.data?.license_id) {
+      embed.fields?.push({
+        name: '🎫 License ID',
+        value: payload.data.license_id,
+        inline: true
+      })
+    }
+
+    if (payload.data?.customer_id) {
+      embed.fields?.push({
+        name: '🏪 Customer ID',
+        value: payload.data.customer_id,
+        inline: true
+      })
+    }
+
+    if (payload.data?.status) {
+      embed.fields?.push({
+        name: '📊 Status',
+        value: payload.data.status,
+        inline: true
+      })
+    }
+
+    return {
+      embeds: [embed],
+      username: 'Ebb Notifications',
+    }
+  }
 
   private formatSubscriptionExpiredNotification(payload: NotificationPayload): DiscordWebhookPayload {
     const embed: DiscordEmbed = {
