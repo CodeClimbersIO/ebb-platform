@@ -5,11 +5,24 @@ import { EmailService } from './EmailService.js'
 import { NotificationEngine } from './NotificationEngine.js'
 import { getNotificationConfig } from '../config/notifications.js'
 import type Stripe from 'stripe'
+import type { NotificationChannel, NotificationPayload } from '../types/notifications.js'
 
 // Shared notification engine instance
 const getNotificationEngine = (): NotificationEngine => {
   const config = getNotificationConfig()
   return new NotificationEngine(config)
+}
+
+const sendNotification = async (payload: NotificationPayload): Promise<void> => {
+  try {
+    console.log('Sending notification:', payload)
+    const notificationEngine = getNotificationEngine()
+    console.log('sending notification with engine:', notificationEngine)
+    await notificationEngine.sendNotification(payload, ['discord'])
+  } catch (error) {
+    console.error('Failed to send notification:', error)
+    throw new ApiError('Failed to send notification', 500)
+  }
 }
 
 const handleCheckoutSessionCompleted = async (session: Stripe.Checkout.Session): Promise<void> => {
@@ -47,37 +60,6 @@ const handleCheckoutSessionCompleted = async (session: Stripe.Checkout.Session):
         expiration_date: null,
         updated_at: new Date()
       })
-      return
-    }
-
-    console.log('Checking for existing subscription license')
-    const existingSubscriptionLicense = await LicenseRepo.getExistingSubscriptionLicenseByUserId(userId)
-    console.log('Existing subscription license:', existingSubscriptionLicense)
-    if (existingSubscriptionLicense) {
-      console.log('Updating existing subscription license')
-      await LicenseRepo.updateLicense(existingSubscriptionLicense.id, {
-        status: 'active',
-        stripe_payment_id: session.subscription as string,
-        expiration_date: null,
-        updated_at: new Date()
-      })
-      console.log('Existing subscription license updated')
-      return
-    }
-    console.log('Creating new subscription license')
-    await LicenseRepo.createLicense({
-      user_id: userId,
-      status: 'active',
-      license_type: productConfig.licenseType,
-      purchase_date: new Date(),
-      stripe_customer_id: customerId,
-      stripe_payment_id: session.subscription as string,
-      expiration_date: undefined,
-    })
-    console.log(`License created for user ${userId} with checkout session ${session.id}`)
-
-    // Send Discord notification for successful checkout
-    try {
       const notificationEngine = getNotificationEngine()
 
       await notificationEngine.sendNotification({
@@ -97,12 +79,75 @@ const handleCheckoutSessionCompleted = async (session: Stripe.Checkout.Session):
           currency: session.currency
         }
       }, ['discord'])
-
-      console.log(`Discord notification sent for successful checkout: ${session.id}`)
-    } catch (error) {
-      console.error('Failed to send Discord notification for checkout completion:', error)
-      // Don't throw - we don't want Discord failures to break webhook processing
+      return
     }
+
+    console.log('Checking for existing subscription license')
+    const existingSubscriptionLicense = await LicenseRepo.getExistingSubscriptionLicenseByUserId(userId)
+    console.log('Existing subscription license:', existingSubscriptionLicense)
+    if (existingSubscriptionLicense) {
+      console.log('Updating existing subscription license')
+      await LicenseRepo.updateLicense(existingSubscriptionLicense.id, {
+        status: 'active',
+        stripe_payment_id: session.subscription as string,
+        expiration_date: null,
+        updated_at: new Date()
+      })
+      console.log('Existing subscription license updated')
+      const notificationEngine = getNotificationEngine()
+
+      await notificationEngine.sendNotification({
+        type: 'checkout_completed',
+        user: {
+          id: userId,
+          email: session.customer_details?.email || session.customer_email || 'N/A'
+        },
+        referenceId: `checkout_completed_${session.id}`,
+        data: {
+          session_id: session.id,
+          customer_id: customerId,
+          subscription_id: session.subscription,
+          product_id: productId,
+          license_type: productConfig.licenseType,
+          amount_total: session.amount_total,
+          currency: session.currency
+        }
+      }, ['discord'])
+      return
+    }
+    console.log('Creating new subscription license')
+    await LicenseRepo.createLicense({
+      user_id: userId,
+      status: 'active',
+      license_type: productConfig.licenseType,
+      purchase_date: new Date(),
+      stripe_customer_id: customerId,
+      stripe_payment_id: session.subscription as string,
+      expiration_date: undefined,
+    })
+    console.log(`License created for user ${userId} with checkout session ${session.id}`)
+
+    // Send Discord notification for successful checkout
+    const notificationEngine = getNotificationEngine()
+
+    await notificationEngine.sendNotification({
+      type: 'checkout_completed',
+      user: {
+        id: userId,
+        email: session.customer_details?.email || session.customer_email || 'N/A'
+      },
+      referenceId: `checkout_completed_${session.id}`,
+      data: {
+        session_id: session.id,
+        customer_id: customerId,
+        subscription_id: session.subscription,
+        product_id: productId,
+        license_type: productConfig.licenseType,
+        amount_total: session.amount_total,
+        currency: session.currency
+      }
+    }, ['discord'])
+
   }
 }
 
@@ -236,10 +281,7 @@ const handleInvoicePaymentFailed = async (invoice: Stripe.Invoice): Promise<void
   // }
 
   // Send Discord notification using NotificationEngine
-  try {
-    const notificationEngine = getNotificationEngine()
-    
-    await notificationEngine.sendNotification({
+    await sendNotification({
       type: 'payment_failed',
       user: {
         id: invoice.customer as string || 'unknown',
@@ -253,13 +295,7 @@ const handleInvoicePaymentFailed = async (invoice: Stripe.Invoice): Promise<void
         customer_name: invoice.customer_name,
         formatted_amount: `${invoice.currency.toUpperCase()} $${(invoice.amount_due / 100).toFixed(2)}`
       }
-    }, ['discord'])
-
-    console.log(`Discord notification sent for payment failure: ${invoice.id}`)
-  } catch (error) {
-    console.error('Failed to send Discord notification for payment failure:', error)
-    // Don't throw - we don't want Discord failures to break webhook processing
-  }
+    })
 }
 
 export const WebhookService = {
