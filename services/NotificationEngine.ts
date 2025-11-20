@@ -10,6 +10,7 @@ import type {
   NotificationConfig
 } from '../types/notifications'
 import { DiscordNotificationProvider } from './providers/DiscordNotificationProvider'
+import { LoopsNotificationProvider } from './providers/LoopsNotificationProvider'
 import { NotificationService } from './NotificationService'
 
 export class NotificationEngine {
@@ -29,7 +30,17 @@ export class NotificationEngine {
       console.log('✅ Discord notification provider initialized')
     }
 
-    // TODO: Initialize other providers (email, slack, sms) when implemented
+    // Initialize Loops (email) provider if enabled
+    if (this.config.channels.email.enabled && this.config.channels.email.apiKey) {
+      const loopsProvider = new LoopsNotificationProvider(
+        this.config.channels.email.apiKey,
+        this.config.channels.email.templates || {}
+      )
+      this.providers.set('email', loopsProvider)
+      console.log('✅ Loops email notification provider initialized')
+    }
+
+    // TODO: Initialize other providers (slack, sms) when implemented
     console.log(`📡 Notification engine initialized with ${this.providers.size} providers`)
   }
 

@@ -2,7 +2,7 @@ import type { PaidUserRecord, NewUserRecord, InactiveUserRecord } from './jobs'
 
 export type { PaidUserRecord, NewUserRecord, InactiveUserRecord } from './jobs'
 
-export type NotificationType = 'paid_user' | 'new_user' | 'inactive_user' | 'weekly_report' | 'payment_failed' | 'checkout_completed' | 'subscription_cancelled' | 'subscription_expired'
+export type NotificationType = 'paid_user' | 'new_user' | 'inactive_user' | 'weekly_report' | 'payment_failed' | 'checkout_completed' | 'subscription_cancelled' | 'subscription_expired' | 'friend_request'
 export type NotificationChannel = 'discord' | 'email' | 'slack' | 'sms'
 
 export interface BaseUserRecord {
@@ -55,7 +55,9 @@ export interface NotificationConfig {
     }
     email: {
       enabled: boolean
-      provider?: 'sendgrid' | 'ses'
+      provider?: 'loops'
+      apiKey?: string
+      templates?: LoopsTemplateConfig
     }
     slack: {
       enabled: boolean
@@ -97,4 +99,14 @@ export interface DiscordEmbedField {
   name: string
   value: string
   inline?: boolean
+}
+
+export interface LoopsEmailPayload {
+  transactionalId: string
+  email: string
+  dataVariables: Record<string, any>
+}
+
+export interface LoopsTemplateConfig {
+  [key: string]: string
 }

@@ -35,6 +35,7 @@ export interface UserMetrics {
   totalUsers: number
 }
 
+
 // Job result interface
 export interface JobResult {
   success: boolean
@@ -98,6 +99,7 @@ export const JOB_TYPES = {
   SLACK_CLEANUP_DND: 'slack-cleanup-dnd',
   SLACK_CLEANUP_STATUS: 'slack-cleanup-status',
   WEEKLY_EMAIL_REMINDER: 'weekly-email-reminder',
+  WEEKLY_REPORT: 'weekly-report',
 } as const
 
 export type JobType = typeof JOB_TYPES[keyof typeof JOB_TYPES]
