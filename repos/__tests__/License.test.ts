@@ -104,9 +104,9 @@ describe('LicenseRepo', () => {
   })
   
 
-  describe('updateLicenseByStripePaymentId', () => {
+  describe('updateLicenseByCustomerId', () => {
     it('should update a license', async () => {
-      const result = await LicenseRepo.updateLicenseByStripePaymentId('pi_test123', 'expired')
+      const result = await LicenseRepo.updateLicenseByCustomerId('cus_test123', 'expired')
       expect(result).not.toBeNull()
       expect(result?.user_id).toBe(user1Id)
       expect(result?.status).toBe('expired')

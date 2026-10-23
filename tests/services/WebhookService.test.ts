@@ -1,17 +1,10 @@
-import { beforeEach, describe, expect, test, mock } from 'bun:test'
+import { afterEach, beforeEach, describe, expect, test, mock, spyOn } from 'bun:test'
 import { WebhookService } from '../../services/WebhookService.js'
 import { LicenseRepo } from '../../repos/License.js'
 import type Stripe from 'stripe'
 
-mock.module('../../repos/License.js', () => ({
-  LicenseRepo: {
-    createLicense: mock(() => Promise.resolve({ id: 'license-123' })),
-    updateLicenseByStripePaymentId: mock(() => Promise.resolve({ id: 'license-123' })),
-    getFreeTrialLicenseByUserId: mock(() => Promise.resolve(null)),
-    getExistingSubscriptionLicenseByUserId: mock(() => Promise.resolve(null)),
-    updateLicense: mock(() => Promise.resolve({ id: 'trial-license-456' }))
-  }
-}))
+// Use spies rather than mock.module: Bun applies mock.module to every test file
+// in the run, so a module-level stub here would leak into later files.
 
 let defaultMockSession = {
   id: 'cs_test_b17yWHosFRVEk62aEegAVsREUlB415PcJqoS1B2ZNEGnVMgVm0Bfpnyz1C',
@@ -33,13 +26,16 @@ let defaultMockSession = {
 
 describe('WebhookService', () => {
   beforeEach(() => {
-    // Clear call history for all mocks
-    (LicenseRepo.createLicense as any).mockClear();
-    (LicenseRepo.updateLicense as any).mockClear();
-    (LicenseRepo.updateLicenseByStripePaymentId as any).mockClear();
-    (LicenseRepo.getFreeTrialLicenseByUserId as any).mockClear();
-    (LicenseRepo.getExistingSubscriptionLicenseByUserId as any).mockClear();
+    spyOn(LicenseRepo, 'createLicense').mockResolvedValue({ id: 'license-123' } as any)
+    spyOn(LicenseRepo, 'updateLicense').mockResolvedValue({ id: 'trial-license-456' } as any)
+    spyOn(LicenseRepo, 'getFreeTrialLicenseByUserId').mockResolvedValue(null)
+    spyOn(LicenseRepo, 'getExistingSubscriptionLicenseByUserId').mockResolvedValue(null)
     process.env.STRIPE_SANDBOX = 'true'
+  })
+
+  afterEach(() => {
+    // Restore all spies so LicenseRepo is untouched for other test files
+    mock.restore()
   })
 
   describe('handleCheckoutSessionCompleted', () => {
@@ -53,7 +49,8 @@ describe('WebhookService', () => {
         license_type: 'subscription',
         purchase_date: expect.any(Date),
         stripe_customer_id: 'cus_Sxs0V3mlJjxzg7',
-        stripe_payment_id: 'sub_1S1wGyAuvxsld26UyyEWlujr'
+        stripe_payment_id: 'sub_1S1wGyAuvxsld26UyyEWlujr',
+        expiration_date: undefined
       })
     })
 
@@ -109,6 +106,7 @@ describe('WebhookService', () => {
         status: 'active',
         license_type: 'subscription',
         stripe_payment_id: 'sub_1S1wGyAuvxsld26UyyEWlujr',
+        expiration_date: null,
         updated_at: expect.any(Date)
       })
       
@@ -131,6 +129,7 @@ describe('WebhookService', () => {
       expect(LicenseRepo.updateLicense).toHaveBeenCalledWith('expired-license-456', {
         status: 'active',
         stripe_payment_id: 'sub_1S1wGyAuvxsld26UyyEWlujr',
+        expiration_date: null,
         updated_at: expect.any(Date)
       })
 
@@ -180,7 +179,8 @@ describe('WebhookService', () => {
         license_type: 'subscription',
         purchase_date: expect.any(Date),
         stripe_customer_id: 'cus_DifferentCustomer',
-        stripe_payment_id: 'sub_DifferentSubscription'
+        stripe_payment_id: 'sub_DifferentSubscription',
+        expiration_date: undefined
       })
     })
   })
