@@ -1,6 +1,23 @@
-import { describe, it, expect, beforeEach, mock, spyOn } from 'bun:test'
+import { describe, it, expect, beforeEach, afterAll, mock, spyOn } from 'bun:test'
 import { processNotificationsWithIdempotency } from '../../services/JobProcessors'
 import type { NewUserRecord, InactiveUserRecord } from '../../types/notifications'
+import * as RealNotificationEngine from '../../services/NotificationEngine'
+import * as RealUserNotificationsRepo from '../../repos/UserNotifications'
+import * as RealNotificationsConfig from '../../config/notifications'
+
+// Bun applies mock.module to every test file in the run, not just this one.
+// Snapshot the real exports (static imports are evaluated before the mocks
+// below) and put them back when this file finishes so later files get the
+// real modules.
+const realNotificationEngine = { ...RealNotificationEngine }
+const realUserNotificationsRepo = { ...RealUserNotificationsRepo }
+const realNotificationsConfig = { ...RealNotificationsConfig }
+
+afterAll(() => {
+  mock.module('../../services/NotificationEngine', () => realNotificationEngine)
+  mock.module('../../repos/UserNotifications', () => realUserNotificationsRepo)
+  mock.module('../../config/notifications', () => realNotificationsConfig)
+})
 
 // Mock dependencies directly
 const mockNotificationEngine = {

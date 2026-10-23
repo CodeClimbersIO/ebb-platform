@@ -23,7 +23,7 @@ const testConfig = {
   client: 'pg',
   connection: {
     host: 'localhost',
-    port: isCI ? 5432 : 5433,
+    port: parseInt(process.env.TEST_DB_PORT || (isCI ? '5432' : '5433')),
     user: 'test_user',
     password: 'test_pass',
     database: 'ebb_test'

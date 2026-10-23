@@ -54,7 +54,15 @@ const BOT_SCOPES = [
   'users:read'
 ].join(',')
 
-const ENCRYPTION = new EbbEncryption(process.env.SLACK_ENCRYPTION_KEY)
+// Constructed lazily so importing this module (e.g. in tests or in environments
+// without Slack configured) does not throw when SLACK_ENCRYPTION_KEY is unset.
+let encryption: EbbEncryption | undefined
+const getEncryption = (): EbbEncryption => {
+  if (!encryption) {
+    encryption = new EbbEncryption(process.env.SLACK_ENCRYPTION_KEY)
+  }
+  return encryption
+}
 
 const generateAuthUrl = async (userId: string, teamId?: string, redirectType?: 'dev' | 'prod'): Promise<string> => {
   if (!CLIENT_ID) {
@@ -199,11 +207,11 @@ const updateUserPreferences = async (userId: string, updates: SlackPreferences):
 
 
 const encrypt = (text: string): string => {
-  return ENCRYPTION.encrypt(text)
+  return getEncryption().encrypt(text)
 }
 
 const decrypt = (encryptedText: string): string => {
-  return ENCRYPTION.decrypt(encryptedText)
+  return getEncryption().decrypt(encryptedText)
 }
 
 const getDecryptedToken = (encryptedToken: string): string => {
